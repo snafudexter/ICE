@@ -8,4 +8,6 @@ edition = "2021"
 [dependencies]
 winit = "0.26"
 erupt = "0.21.0+202"
+color-eyre = "0.5"
+flexi_logger = "0.22"
 log = "0.4"

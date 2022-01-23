@@ -1,24 +1,21 @@
+use crate::vrt::device::queue::{CompleteQueueFamilyIndices, QueueFamilyIndices};
 use erupt::utils::surface;
-use erupt::vk::*;
 use erupt::vk::{
-    make_api_version, ApplicationInfoBuilder, InstanceCreateInfoBuilder, API_VERSION_1_1,
+    make_api_version, ApplicationInfoBuilder, InstanceCreateInfoBuilder, PhysicalDevice,
+    API_VERSION_1_1,
 };
 use erupt::{EntryLoader, InstanceLoader};
 use std::os::raw::c_char;
 use std::sync::Arc;
 use winit::window::Window;
 
-#[cfg(all(debug_assertions))]
-const ENABLE_VALIDATION_LAYERS: bool = true;
-#[cfg(not(debug_assertions))]
-const ENABLE_VALIDATION_LAYERS: bool = false;
-
 #[cfg(debug_assertions)]
 use crate::vrt::utils::debug;
 
-use crate::vrt::utils::result::VkResult;
+use crate::vrt::utils::result::{VkError, VkResult};
 
 pub struct VRTDevice {
+    _physical_device: PhysicalDevice,
     #[cfg(debug_assertions)]
     debug_messenger: debug::Messenger,
     instance: Arc<InstanceLoader>,
@@ -33,7 +30,10 @@ impl VRTDevice {
         #[cfg(debug_assertions)]
         let debug_messenger = debug::Messenger::new(&instance)?;
 
+        let (physical_device, _queue_family_indices) = Self::pick_physical_device(&instance)?;
+
         Ok(Self {
+            _physical_device: physical_device,
             #[cfg(debug_assertions)]
             debug_messenger,
             instance,
@@ -44,6 +44,11 @@ impl VRTDevice {
     fn create_instance(window: &Window, entry: &EntryLoader) -> VkResult<Arc<InstanceLoader>> {
         #[cfg(debug_assertions)]
         use erupt::ExtendableFrom;
+
+        #[cfg(debug_assertions)]
+        if !debug::check_validation_layer_support(entry)? {
+            return Err(VkError::ValidationLayerUnavailable);
+        }
 
         let app_info = ApplicationInfoBuilder::new()
             .application_version(make_api_version(0, 1, 0, 0))
@@ -78,10 +83,38 @@ impl VRTDevice {
 
         Ok(extensions)
     }
+
+    fn pick_physical_device(
+        instance: &InstanceLoader,
+    ) -> VkResult<(PhysicalDevice, CompleteQueueFamilyIndices)> {
+        let devices = unsafe { instance.enumerate_physical_devices(None) }.result()?;
+
+        if devices.is_empty() {
+            return Err(VkError::NoVulkanGpu);
+        }
+
+        devices
+            .into_iter()
+            .find_map(|device| Some((device, Self::is_device_suitable(instance, device)?)))
+            .ok_or(VkError::NoSuitableGpu)
+    }
+
+    fn is_device_suitable(
+        instance: &InstanceLoader,
+        device: PhysicalDevice,
+    ) -> Option<CompleteQueueFamilyIndices> {
+        let indices = QueueFamilyIndices::new(instance, device);
+
+        indices.complete()
+    }
 }
 
 impl Drop for VRTDevice {
     fn drop(&mut self) {
-        unsafe { self.instance.destroy_instance(None) }
+        unsafe {
+            #[cfg(debug_assertions)]
+            self.debug_messenger.destroy(&self.instance);
+            self.instance.destroy_instance(None)
+        }
     }
 }

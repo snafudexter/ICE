@@ -1,8 +1,8 @@
+use crate::vrt::device::device::VRTDevice;
+use crate::vrt::window::VRTWindow;
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
-
-use crate::vrt::{device::VRTDevice, window::VRTWindow};
 
 const APP_NAME: &str = "Vulkan Raytracer";
 const WINDOW_WIDTH: u32 = 800;
