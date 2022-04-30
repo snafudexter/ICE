@@ -1,98 +1,84 @@
+use std::process;
+
 use erupt::vk::{
     AttachmentDescriptionBuilder, AttachmentLoadOp, AttachmentReferenceBuilder, AttachmentStoreOp,
-    BlendFactor, BlendOp, ColorComponentFlags, CullModeFlags, Extent2D, Format, FrontFace,
-    ImageLayout, LogicOp, Offset2DBuilder, PipelineBindPoint,
-    PipelineColorBlendAttachmentStateBuilder, PipelineColorBlendStateCreateInfoBuilder,
-    PipelineInputAssemblyStateCreateInfoBuilder, PipelineLayout, PipelineLayoutCreateInfoBuilder,
-    PipelineMultisampleStateCreateInfoBuilder, PipelineRasterizationStateCreateInfoBuilder,
-    PipelineShaderStageCreateInfoBuilder, PipelineVertexInputStateCreateInfoBuilder,
-    PipelineViewportStateCreateInfoBuilder, PolygonMode, PrimitiveTopology, Rect2DBuilder,
-    RenderPass, RenderPassCreateInfoBuilder, SampleCountFlagBits, ShaderStageFlagBits,
-    SubpassDescriptionBuilder, ViewportBuilder,
+    BlendFactor, BlendOp, ClearColorValue, ClearValue, ColorComponentFlags, CommandBuffer,
+    CommandBufferAllocateInfoBuilder, CommandBufferBeginInfoBuilder, CommandBufferLevel,
+    CommandPool, CommandPoolCreateInfoBuilder, CullModeFlags, Extent2D, FenceCreateFlags,
+    FenceCreateInfoBuilder, Format, Framebuffer, FramebufferCreateInfoBuilder, FrontFace,
+    GraphicsPipelineCreateInfoBuilder, Image, ImageLayout, ImageView, LogicOp, Offset2DBuilder,
+    Pipeline, PipelineBindPoint, PipelineCache, PipelineColorBlendAttachmentStateBuilder,
+    PipelineColorBlendStateCreateInfoBuilder, PipelineInputAssemblyStateCreateInfoBuilder,
+    PipelineLayout, PipelineLayoutCreateInfoBuilder, PipelineMultisampleStateCreateInfoBuilder,
+    PipelineRasterizationStateCreateInfoBuilder, PipelineShaderStageCreateInfoBuilder,
+    PipelineStageFlags, PipelineVertexInputStateCreateInfoBuilder,
+    PipelineViewportStateCreateInfoBuilder, PolygonMode, PresentInfoKHRBuilder, PrimitiveTopology,
+    Rect2DBuilder, RenderPass, RenderPassBeginInfoBuilder, RenderPassCreateInfoBuilder,
+    SampleCountFlagBits, SemaphoreCreateInfoBuilder, ShaderStageFlagBits, SubmitInfoBuilder,
+    SubpassContents, SubpassDescriptionBuilder, ViewportBuilder,
 };
-use erupt::DeviceLoader;
+use erupt::{DeviceLoader, SmallVec};
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
-use winit::platform::run_return::EventLoopExtRunReturn;
 use winit::window::Window;
 
 use super::device::device::VRTDevice;
+use super::device::queue::CompleteQueueFamilyIndices;
+use super::device::sync::SyncObjects;
 use super::graphics::shader::base::Shader;
-use super::utils::result::VkResult;
-use super::window::VRTWindow;
-
-const APP_NAME: &str = "Vulkan Raytracer";
-const WINDOW_WIDTH: u32 = 800;
-const WINDOW_HEIGHT: u32 = 600;
+use super::graphics::utils::pipeline::RenderPipeline;
+use super::utils::result::{VkError, VkResult};
 
 // Compiled shaders
 const VERTEX_SHADER_CODE: &[u8] = include_bytes!("./assets/shaders/vert.spirv");
 const FRAGMENT_SHADER_CODE: &[u8] = include_bytes!("./assets/shaders/frag.spirv");
 
 pub struct VRTApp {
-    event_loop: EventLoop<()>,
-    window: Window,
     device: VRTDevice,
-    pipeline_layout: PipelineLayout,
-    render_pass: RenderPass,
+    pipeline: RenderPipeline,
 }
 
 impl VRTApp {
-    pub fn new() -> VkResult<Self> {
-        let event_loop = EventLoop::new();
-        let window = VRTWindow::build_window(&event_loop, APP_NAME, WINDOW_WIDTH, WINDOW_HEIGHT)
-            .expect("Cannot create window.");
+    pub fn new(window: &Window) -> VkResult<Self> {
+        let device = VRTDevice::new(window).expect("Cannot create device");
 
-        let device = VRTDevice::new(&window).expect("Cannot create device");
-
-        let render_pass = Self::create_render_pass(
-            &device.get_device_ptr(),
-            (*device.get_swapchain_ptr()).image_format,
-        )?;
-        let pipeline_layout = Self::create_graphics_pipeline(
+        let (pipeline_layout, graphics_pipeline) = Self::create_graphics_pipeline(
             &device.get_device_ptr(),
             &device.get_swapchain_ptr().extent,
+            render_pass,
+        )?;
+
+        let pipeline = RenderPipeline {
+            pipeline: graphics_pipeline,
+            layout: pipeline_layout,
+            render_pass,
+        };
+
+        let command_buffers = Self::create_command_buffers(
+            &device.get_device_ptr(),
+            &device.get_swapchain_ptr().extent,
+            render_pass,
+            graphics_pipeline,
+            &framebuffers,
+            command_pool,
         )?;
 
         Ok(Self {
-            event_loop,
-            window,
+            sync,
             device,
-            pipeline_layout,
             render_pass,
+            pipeline,
+            framebuffers,
+            command_pool,
+            command_buffers,
         })
-    }
-
-    fn create_render_pass(device: &DeviceLoader, image_format: Format) -> VkResult<RenderPass> {
-        let color_attachment = AttachmentDescriptionBuilder::new()
-            .format(image_format)
-            .samples(SampleCountFlagBits::_1)
-            .load_op(AttachmentLoadOp::CLEAR)
-            .store_op(AttachmentStoreOp::STORE)
-            .stencil_load_op(AttachmentLoadOp::DONT_CARE)
-            .stencil_store_op(AttachmentStoreOp::DONT_CARE)
-            .initial_layout(ImageLayout::UNDEFINED)
-            .final_layout(ImageLayout::PRESENT_SRC_KHR);
-
-        let color_attachment_ref = AttachmentReferenceBuilder::new()
-            .attachment(0)
-            .layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
-
-        let subpass = SubpassDescriptionBuilder::new()
-            .pipeline_bind_point(PipelineBindPoint::GRAPHICS)
-            .color_attachments(std::slice::from_ref(&color_attachment_ref));
-
-        let render_pass_info = RenderPassCreateInfoBuilder::new()
-            .attachments(std::slice::from_ref(&color_attachment))
-            .subpasses(std::slice::from_ref(&subpass));
-
-        Ok(unsafe { device.create_render_pass(&render_pass_info, None) }.result()?)
     }
 
     fn create_graphics_pipeline(
         device: &DeviceLoader,
         extent: &Extent2D,
-    ) -> VkResult<PipelineLayout> {
+        render_pass: RenderPass,
+    ) -> VkResult<(PipelineLayout, Pipeline)> {
         let vertex_shader_module = Shader::create_shader_module(device, VERTEX_SHADER_CODE)?;
         let fragment_shader_module = Shader::create_shader_module(device, FRAGMENT_SHADER_CODE)?;
 
@@ -173,31 +159,101 @@ impl VRTApp {
 
         let pipeline_layout = unsafe { device.create_pipeline_layout(&pipeline_layout_info, None) };
 
+        let pipeline_info = GraphicsPipelineCreateInfoBuilder::new()
+            .stages(&_shader_stages)
+            .vertex_input_state(&_vertex_input_info)
+            .input_assembly_state(&_input_assembly)
+            .viewport_state(&_viewport_state)
+            .rasterization_state(&_rasterizer)
+            .multisample_state(&_multisampling)
+            .color_blend_state(&_color_blending)
+            .layout(pipeline_layout.unwrap())
+            .render_pass(render_pass)
+            .subpass(0)
+            .base_pipeline_index(-1);
+
+        let graphics_pipeline = unsafe {
+            device.create_graphics_pipelines(
+                PipelineCache::null(),
+                std::slice::from_ref(&pipeline_info),
+                None,
+            )
+        }
+        .result()?[0];
+
         unsafe { device.destroy_shader_module(fragment_shader_module, None) };
         unsafe { device.destroy_shader_module(vertex_shader_module, None) };
 
-        Ok(pipeline_layout.result()?)
+        Ok((pipeline_layout.result()?, graphics_pipeline))
     }
 
-    pub fn run(mut self) -> () {
-        self.event_loop.run_return(|event, _, control_flow| {
+    fn process_event(
+        &mut self,
+        window: &Window,
+        event: Event<()>,
+        control_flow: &mut ControlFlow,
+    ) -> VkResult<()> {
+        match event {
+            Event::WindowEvent { event, .. } => match event {
+                WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                WindowEvent::KeyboardInput { input, .. } => {
+                    if let (Some(VirtualKeyCode::Escape), ElementState::Released) =
+                        (input.virtual_keycode, input.state)
+                    {
+                        *control_flow = ControlFlow::Exit;
+                    }
+                }
+                WindowEvent::Resized(new_inner_size)
+                | WindowEvent::ScaleFactorChanged {
+                    new_inner_size: &mut new_inner_size,
+                    ..
+                } => {
+                    if self.swapchain.extent.width != new_inner_size.width
+                        || self.swapchain.extent.height != new_inner_size.height
+                    {
+                        self.recreate_swapchain(window)?;
+                    }
+                }
+                _ => (),
+            },
+            Event::MainEventsCleared => window.request_redraw(),
+            Event::RedrawRequested(_) => self.draw_frame(window)?,
+            Event::LoopDestroyed => unsafe { self.device.device_wait_idle() }.result()?,
+            _ => (),
+        }
+
+        Ok(())
+    }
+
+    fn draw_frame(&mut self, window: &Window) -> VkResult<()> {
+        let image_index = match image_index_result {
+            Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
+                self.recreate_swapchain(window)?;
+                return Ok(());
+            }
+            result => result,
+        }?;
+
+        if present_result.raw == vk::Result::ERROR_OUT_OF_DATE_KHR
+            || present_result.raw == vk::Result::SUBOPTIMAL_KHR
+        {
+            self.recreate_swapchain(window)?;
+        } else {
+            present_result.result()?;
+        }
+
+        self.sync.current_frame = (self.sync.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
+
+        Ok(())
+    }
+
+    pub fn run(mut self, event_loop: EventLoop<()>, window: Window) -> ! {
+        event_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Wait;
 
-            match event {
-                Event::WindowEvent { event, .. } => match event {
-                    WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-                    WindowEvent::KeyboardInput { input, .. } => {
-                        if let (Some(VirtualKeyCode::Escape), ElementState::Released) =
-                            (input.virtual_keycode, input.state)
-                        {
-                            *control_flow = ControlFlow::Exit;
-                        }
-                    }
-                    _ => (),
-                },
-                Event::MainEventsCleared => self.window.request_redraw(),
-                Event::RedrawRequested(_) => {}
-                _ => (),
+            if let Err(err) = self.process_event(&window, event, control_flow) {
+                eprintln!("Error: {:?}", color_eyre::Report::new(err));
+                process::exit(1);
             }
         })
     }
@@ -208,11 +264,15 @@ impl Drop for VRTApp {
         unsafe {
             self.device
                 .get_device_ptr()
-                .destroy_pipeline_layout(self.pipeline_layout, None);
+                .destroy_command_pool(self.command_pool, None);
 
             self.device
                 .get_device_ptr()
-                .destroy_render_pass(self.render_pass, None);
+                .destroy_pipeline(self.pipeline.pipeline, None);
+
+            self.device
+                .get_device_ptr()
+                .destroy_pipeline_layout(self.pipeline.layout, None);
         }
     }
 }

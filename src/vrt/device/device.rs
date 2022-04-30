@@ -1,18 +1,19 @@
 use crate::vrt::device::queue::{CompleteQueueFamilyIndices, QueueFamilyIndices, Queues};
 use crate::vrt::utils::result::{VkError, VkResult};
 use erupt::utils::surface;
+use erupt::vk::CommandPool;
+use erupt::vk::CommandPoolCreateInfoBuilder;
 use erupt::vk::{
-    make_api_version, ApplicationInfoBuilder, ColorSpaceKHR, ComponentMappingBuilder,
-    ComponentSwizzle, CompositeAlphaFlagBitsKHR, DeviceCreateInfoBuilder,
-    DeviceQueueCreateInfoBuilder, Extent2D, Extent2DBuilder, Format, Image, ImageAspectFlags,
-    ImageSubresourceRangeBuilder, ImageUsageFlags, ImageView, ImageViewCreateInfoBuilder,
-    ImageViewType, InstanceCreateInfoBuilder, PhysicalDevice, PhysicalDeviceFeaturesBuilder,
-    PresentModeKHR, SharingMode, SurfaceCapabilitiesKHR, SurfaceFormatKHR, SurfaceKHR,
-    SwapchainCreateInfoKHRBuilder, API_VERSION_1_1, KHR_SWAPCHAIN_EXTENSION_NAME,
+    make_api_version, ApplicationInfoBuilder, DeviceCreateInfoBuilder,
+    DeviceQueueCreateInfoBuilder, Extent2D, Framebuffer, FramebufferCreateInfoBuilder, ImageView,
+    InstanceCreateInfoBuilder, PhysicalDevice, PhysicalDeviceFeaturesBuilder, PresentModeKHR,
+    RenderPass, SurfaceCapabilitiesKHR, SurfaceFormatKHR, SurfaceKHR, API_VERSION_1_1,
+    KHR_SWAPCHAIN_EXTENSION_NAME,
 };
+use erupt::SmallVec;
 use erupt::{DeviceLoader, EntryLoader, InstanceLoader};
 use std::collections::BTreeSet;
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::slice;
 use std::sync::Arc;
@@ -21,13 +22,20 @@ use winit::window::Window;
 #[cfg(debug_assertions)]
 use crate::vrt::utils::debug;
 
-use super::swapchain::{Swapchain, SwapchainSupportDetails};
+use super::swapchain::Swapchain;
 
 const DEVICE_EXTENSIONS: &[*const c_char] = &[KHR_SWAPCHAIN_EXTENSION_NAME];
 
+#[derive(Debug, Clone)]
+pub struct SwapchainSupportDetails {
+    capabilities: SurfaceCapabilitiesKHR,
+    formats: SmallVec<SurfaceFormatKHR>,
+    present_modes: SmallVec<PresentModeKHR>,
+}
+
 pub struct VRTDevice {
-    swapchain: Arc<Swapchain>,
     _queues: Queues,
+    queue_family_indices: CompleteQueueFamilyIndices,
     device: Arc<DeviceLoader>,
     surface: SurfaceKHR,
     _physical_device: PhysicalDevice,
@@ -35,6 +43,8 @@ pub struct VRTDevice {
     debug_messenger: debug::Messenger,
     instance: Arc<InstanceLoader>,
     _entry: EntryLoader,
+    swapchain_support: SwapchainSupportDetails,
+    command_pool: CommandPool,
 }
 
 impl VRTDevice {
@@ -53,16 +63,9 @@ impl VRTDevice {
         let (device, queues) =
             Self::create_logical_device(&instance, physical_device, queue_family_indices)?;
 
-        let swapchain = Self::create_swapchain(
-            window,
-            surface,
-            queue_family_indices,
-            &swapchain_support,
-            &device,
-        )?;
+        let command_pool = Self::create_command_pool(&queue_family_indices, &device)?;
 
         Ok(Self {
-            swapchain,
             _queues: queues,
             device,
             _physical_device: physical_device,
@@ -71,15 +74,38 @@ impl VRTDevice {
             debug_messenger,
             instance,
             _entry: entry,
+            queue_family_indices,
+            swapchain_support,
+            command_pool,
         })
+    }
+
+    pub fn get_swapchain_support(&self) -> VkResult<SwapchainSupportDetails> {
+        SwapchainSupportDetails::new(&self.instance, self.surface, self._physical_device)
     }
 
     pub fn get_device_ptr(&self) -> Arc<DeviceLoader> {
         self.device.clone()
     }
 
+    pub fn get_command_pool(&self) -> CommandPool {
+        self.command_pool
+    }
+
     pub fn get_swapchain_ptr(&self) -> Arc<Swapchain> {
         self.swapchain.clone()
+    }
+
+    pub fn get_queue_family_indices(&self) -> CompleteQueueFamilyIndices {
+        self.queue_family_indices
+    }
+
+    pub fn get_queues(&self) -> &Queues {
+        &self._queues
+    }
+
+    pub fn get_surface(&self) -> SurfaceKHR {
+        self.surface
     }
 
     fn create_instance(window: &Window, entry: &EntryLoader) -> VkResult<Arc<InstanceLoader>> {
@@ -235,142 +261,118 @@ impl VRTDevice {
         Ok(unsafe { surface::create_surface(instance, window, None) }.result()?)
     }
 
-    fn create_swapchain(
-        window: &Window,
-        surface: SurfaceKHR,
-        indices: CompleteQueueFamilyIndices,
-        swapchain_support: &SwapchainSupportDetails,
+    fn create_framebuffers(
         device: &DeviceLoader,
-    ) -> VkResult<Arc<Swapchain>> {
-        let capabilities = swapchain_support.capabilities();
-
-        let surface_format = Self::choose_swap_surface_format(swapchain_support.formats());
-        let present_mode = Self::choose_swap_present_mode(swapchain_support.present_modes());
-        let extent = Self::choose_swap_extent(window, capabilities);
-
-        let image_count = if capabilities.max_image_count > 0 {
-            capabilities
-                .max_image_count
-                .min(capabilities.min_image_count + 1)
-        } else {
-            capabilities.min_image_count + 1
-        };
-
-        let indices = [indices.graphics_family(), indices.present_family()];
-        let (sharing_mode, indices) = if indices[0] == indices[1] {
-            (SharingMode::EXCLUSIVE, &[][..])
-        } else {
-            (SharingMode::CONCURRENT, &indices[..])
-        };
-
-        let create_info = SwapchainCreateInfoKHRBuilder::new()
-            .surface(surface)
-            .min_image_count(image_count)
-            .image_format(surface_format.format)
-            .image_color_space(surface_format.color_space)
-            .image_extent(extent)
-            .image_array_layers(1)
-            .image_usage(ImageUsageFlags::COLOR_ATTACHMENT)
-            .image_sharing_mode(sharing_mode)
-            .queue_family_indices(indices)
-            .pre_transform(capabilities.current_transform)
-            .composite_alpha(CompositeAlphaFlagBitsKHR::OPAQUE_KHR)
-            .present_mode(present_mode)
-            .clipped(true);
-
-        let swapchain = unsafe { device.create_swapchain_khr(&create_info, None) }.result()?;
-
-        let images = unsafe { device.get_swapchain_images_khr(swapchain, None) }.result()?;
-        let image_format = surface_format.format;
-        let image_views = Self::create_image_views(device, &images, image_format)?;
-
-        Ok(Arc::new(Swapchain {
-            image_views,
-            extent,
-            image_format,
-            images,
-            swapchain,
-        }))
-    }
-
-    fn choose_swap_surface_format(available_formats: &[SurfaceFormatKHR]) -> SurfaceFormatKHR {
-        *available_formats
+        extent: &Extent2D,
+        image_views: &[ImageView],
+        render_pass: RenderPass,
+    ) -> VkResult<Vec<Framebuffer>> {
+        image_views
             .iter()
-            .find(|format| {
-                format.format == Format::B8G8R8A8_SRGB
-                    && format.color_space == ColorSpaceKHR::SRGB_NONLINEAR_KHR
-            })
-            .unwrap_or(&available_formats[0])
-    }
-
-    fn choose_swap_present_mode(available_present_modes: &[PresentModeKHR]) -> PresentModeKHR {
-        *available_present_modes
-            .iter()
-            .find(|present_mode| **present_mode == PresentModeKHR::MAILBOX_KHR)
-            .unwrap_or(&PresentModeKHR::FIFO_KHR)
-    }
-
-    fn choose_swap_extent(window: &Window, capabilities: &SurfaceCapabilitiesKHR) -> Extent2D {
-        if capabilities.current_extent.width == u32::MAX {
-            let size = window.inner_size();
-
-            *Extent2DBuilder::new()
-                .width(size.width.clamp(
-                    capabilities.min_image_extent.width,
-                    capabilities.max_image_extent.width,
-                ))
-                .height(size.height.clamp(
-                    capabilities.min_image_extent.height,
-                    capabilities.max_image_extent.height,
-                ))
-        } else {
-            capabilities.current_extent
-        }
-    }
-
-    fn create_image_views(
-        device: &DeviceLoader,
-        images: &[Image],
-        image_format: Format,
-    ) -> VkResult<Vec<ImageView>> {
-        images
-            .iter()
-            .map(|image| {
-                let create_info = ImageViewCreateInfoBuilder::new()
-                    .image(*image)
-                    .view_type(ImageViewType::_2D)
-                    .format(image_format)
-                    .components(
-                        *ComponentMappingBuilder::new()
-                            .r(ComponentSwizzle::IDENTITY)
-                            .g(ComponentSwizzle::IDENTITY)
-                            .b(ComponentSwizzle::IDENTITY)
-                            .a(ComponentSwizzle::IDENTITY),
-                    )
-                    .subresource_range(
-                        *ImageSubresourceRangeBuilder::new()
-                            .aspect_mask(ImageAspectFlags::COLOR)
-                            .base_mip_level(0)
-                            .level_count(1)
-                            .base_array_layer(0)
-                            .layer_count(1),
-                    );
-                unsafe { device.create_image_view(&create_info, None) }.map_err(VkError::Vk)
+            .map(|image_view| {
+                let framebuffer_info = FramebufferCreateInfoBuilder::new()
+                    .render_pass(render_pass)
+                    .attachments(std::slice::from_ref(image_view))
+                    .width(extent.width)
+                    .height(extent.height)
+                    .layers(1);
+                unsafe { device.create_framebuffer(&framebuffer_info, None) }.map_err(VkError::Vk)
             })
             .collect()
+    }
+
+    fn create_command_pool(
+        indices: &CompleteQueueFamilyIndices,
+        device: &DeviceLoader,
+    ) -> VkResult<CommandPool> {
+        let pool_info =
+            CommandPoolCreateInfoBuilder::new().queue_family_index(indices.graphics_family());
+
+        Ok(unsafe { device.create_command_pool(&pool_info, None) }.result()?)
+    }
+
+    fn recreate_swapchain(&mut self, window: &Window) -> VkResult<()> {
+        unsafe { self.device.device_wait_idle() }.result()?;
+
+        unsafe { self.cleanup_swapchain() };
+
+        let queue_family_indices =
+            QueueFamilyIndices::new(&self.instance, self.surface, self._physical_device)?
+                .complete()
+                .ok_or(VkError::NoSuitableGpu)?;
+        let swapchain_support =
+            SwapchainSupportDetails::new(&self.instance, self.surface, self._physical_device)?;
+
+        self.swapchain = Self::create_swapchain(
+            window,
+            self.surface,
+            queue_family_indices,
+            &swapchain_support,
+            &self.device,
+        )?;
+
+        self.pipeline.render_pass =
+            Self::create_render_pass(&self.device, self.swapchain.image_format)?;
+        let (pipeline_layout, graphics_pipeline) = Self::create_graphics_pipeline(
+            &self.device,
+            self.swapchain.extent,
+            self.pipeline.render_pass,
+        )?;
+        self.pipeline.layout = pipeline_layout;
+        self.pipeline.pipeline = graphics_pipeline;
+
+        self.framebuffers = Self::create_framebuffers(
+            &self.device,
+            self.swapchain.extent,
+            &self.swapchain.image_views,
+            self.pipeline.render_pass,
+        )?;
+
+        self.command_buffers = Self::create_command_buffers(
+            &self.device,
+            self.swapchain.extent,
+            self.pipeline.render_pass,
+            self.pipeline.pipeline,
+            &self.framebuffers,
+            self.command_pool,
+        )?;
+
+        self.sync
+            .images_in_flight
+            .resize(self.swapchain.images.len(), None);
+
+        Ok(())
+    }
+
+    unsafe fn cleanup_swapchain(&mut self) {
+        for framebuffer in &self.framebuffers {
+            self.device.destroy_framebuffer(*framebuffer, None);
+        }
+
+        self.device
+            .free_command_buffers(self.command_pool, &self.command_buffers);
+
+        self.device
+            .destroy_pipeline(Some(self.pipeline.pipeline), None);
+
+        self.device
+            .destroy_pipeline_layout(Some(self.pipeline.layout), None);
+
+        self.device
+            .destroy_render_pass(Some(self.pipeline.render_pass), None);
+
+        for image_view in &self.swapchain.image_views {
+            self.device.destroy_image_view(Some(*image_view), None);
+        }
+
+        self.device
+            .destroy_swapchain_khr(Some(self.swapchain.swapchain), None);
     }
 }
 
 impl Drop for VRTDevice {
     fn drop(&mut self) {
         unsafe {
-            for image_view in &self.swapchain.image_views {
-                self.device.destroy_image_view(*image_view, None);
-            }
-
-            self.device
-                .destroy_swapchain_khr(self.swapchain.swapchain, None);
-
             self.device.destroy_device(None);
 
             self.instance.destroy_surface_khr(self.surface, None);
@@ -394,4 +396,47 @@ fn check_support<'a>(
     }
 
     required.is_empty()
+}
+
+impl SwapchainSupportDetails {
+    pub fn new(
+        instance: &InstanceLoader,
+        surface: SurfaceKHR,
+        device: PhysicalDevice,
+    ) -> VkResult<Self> {
+        let capabilities =
+            unsafe { instance.get_physical_device_surface_capabilities_khr(device, surface) }
+                .result()?;
+
+        let formats =
+            unsafe { instance.get_physical_device_surface_formats_khr(device, surface, None) }
+                .result()?;
+
+        let present_modes = unsafe {
+            instance.get_physical_device_surface_present_modes_khr(device, surface, None)
+        }
+        .result()?;
+
+        Ok(Self {
+            capabilities,
+            formats,
+            present_modes,
+        })
+    }
+
+    pub fn is_adequate(&self) -> bool {
+        !self.formats.is_empty() && !self.present_modes.is_empty()
+    }
+
+    pub fn capabilities(&self) -> &SurfaceCapabilitiesKHR {
+        &self.capabilities
+    }
+
+    pub fn formats(&self) -> &[SurfaceFormatKHR] {
+        &self.formats
+    }
+
+    pub fn present_modes(&self) -> &[PresentModeKHR] {
+        &self.present_modes
+    }
 }
