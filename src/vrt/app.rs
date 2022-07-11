@@ -1,3 +1,4 @@
+use crate::VRTWindow;
 use std::process;
 
 use erupt::vk::{
@@ -189,7 +190,7 @@ impl VRTApp {
 
     fn process_event(
         &mut self,
-        window: &Window,
+        window: &mut VRTWindow,
         event: Event<()>,
         control_flow: &mut ControlFlow,
     ) -> VkResult<()> {
@@ -208,16 +209,12 @@ impl VRTApp {
                     new_inner_size: &mut new_inner_size,
                     ..
                 } => {
-                    if self.swapchain.extent.width != new_inner_size.width
-                        || self.swapchain.extent.height != new_inner_size.height
-                    {
-                        self.recreate_swapchain(window)?;
-                    }
+                    window.resize_callback(new_inner_size);
                 }
                 _ => (),
             },
-            Event::MainEventsCleared => window.request_redraw(),
-            Event::RedrawRequested(_) => self.draw_frame(window)?,
+            Event::MainEventsCleared => window.get_window_ptr().request_redraw(),
+            Event::RedrawRequested(_) => self.draw_frame(window.get_window_ptr())?,
             Event::LoopDestroyed => unsafe { self.device.device_wait_idle() }.result()?,
             _ => (),
         }
@@ -247,11 +244,11 @@ impl VRTApp {
         Ok(())
     }
 
-    pub fn run(mut self, event_loop: EventLoop<()>, window: Window) -> ! {
+    pub fn run(mut self, event_loop: EventLoop<()>, window: &mut VRTWindow) -> ! {
         event_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Wait;
 
-            if let Err(err) = self.process_event(&window, event, control_flow) {
+            if let Err(err) = self.process_event(window, event, control_flow) {
                 eprintln!("Error: {:?}", color_eyre::Report::new(err));
                 process::exit(1);
             }

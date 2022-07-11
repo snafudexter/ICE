@@ -22,6 +22,7 @@ pub enum VkError {
     NoSupportedFormat,
     UnsupportedLayoutTransition,
     UnsupportedLinearBlitting,
+    SwapChainExpired,
 }
 
 impl From<EntryLoaderError> for VkError {
@@ -72,6 +73,9 @@ impl fmt::Display for VkError {
             VkError::UnsupportedLayoutTransition => f.write_str("unsupported layout transition"),
             VkError::UnsupportedLinearBlitting => {
                 f.write_str("texture image format does not support linear blitting!")
+            }
+            VkError::SwapChainExpired => {
+                f.write_str("Swap chain out of date ERROR_OUT_OF_DATE_KHR")
             }
         }
     }

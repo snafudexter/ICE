@@ -44,7 +44,7 @@ pub struct SwapchainSupportDetails {
 }
 
 impl Swapchain {
-    fn new(device: &VRTDevice, extent: &Extent2D) -> VkResult<Self> {
+    pub fn new(device: &VRTDevice, extent: Extent2D) -> VkResult<Self> {
         let (extent, image_format, images, swapchain) = Self::create_swapchain(extent, device)?;
 
         let image_views = Self::create_image_views(device, &images, image_format)?;
@@ -68,7 +68,7 @@ impl Swapchain {
         })
     }
 
-    fn acquire_next_image(&self, index: usize) -> Result<u32, erupt::vk1_0::Result> {
+    pub fn acquire_next_image(&self, index: usize) -> Result<u32, erupt::vk1_0::Result> {
         unsafe {
             self.device.wait_for_fences(
                 std::slice::from_ref(&self.sync.in_flight_fences[self.sync.current_frame]),
@@ -139,7 +139,7 @@ impl Swapchain {
     }
 
     fn create_swapchain(
-        extent: &Extent2D,
+        extent: Extent2D,
         device: &VRTDevice,
     ) -> VkResult<(Extent2D, Format, SmallVec<Image>, SwapchainKHR)> {
         let swapchain_support = device.get_swapchain_support()?;
@@ -346,7 +346,7 @@ impl Swapchain {
             .unwrap_or(&PresentModeKHR::FIFO_KHR)
     }
 
-    fn choose_swap_extent(extent: &Extent2D, capabilities: &SurfaceCapabilitiesKHR) -> Extent2D {
+    fn choose_swap_extent(extent: Extent2D, capabilities: &SurfaceCapabilitiesKHR) -> Extent2D {
         if capabilities.current_extent.width == u32::MAX {
             *Extent2DBuilder::new()
                 .width(extent.width.clamp(

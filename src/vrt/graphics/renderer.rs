@@ -1,47 +1,58 @@
 use crate::vrt::device::device::VRTDevice;
 use crate::vrt::device::swapchain::Swapchain;
-use crate::vrt::utils::result::VkResult;
+use crate::vrt::device::swapchain::MAX_FRAMES_IN_FLIGHT;
+use crate::vrt::utils::result::{VkError::SwapChainExpired, VkResult};
+use crate::VRTWindow;
+use erupt::vk;
+use erupt::vk::ClearColorValue;
+use erupt::vk::ClearValue;
 use erupt::vk::CommandBuffer;
-use erupt::vk::CommandBufferBeginInfoBuilder;
-use erupt::vk::Extent2D;
-use erupt::vk::RenderPass;
-use erupt::vk::{CommandBufferAllocateInfoBuilder, CommandBufferLevel, PipelineBindPoint};
-use erupt::DeviceLoader;
+use erupt::vk::Offset2DBuilder;
+use erupt::vk::Rect2DBuilder;
+use erupt::vk::RenderPassBeginInfoBuilder;
+use erupt::vk::{
+    CommandBufferAllocateInfoBuilder, CommandBufferBeginInfoBuilder, CommandBufferLevel,
+};
 use erupt::SmallVec;
-use std::sync::Arc;
-use winit::window::Window;
 
-pub struct Renderer {
-    window: Window,
-    swapchain: Arc<Swapchain>,
+pub struct Renderer<'a> {
+    window: &'a VRTWindow,
+    swapchain: Swapchain,
     command_buffers: SmallVec<CommandBuffer>,
-    device: Arc<DeviceLoader>,
+    device: &'a VRTDevice,
+    current_frame_index: usize,
+    is_frame_started: bool,
 }
 
-impl Renderer {
-    pub fn new(device: Arc<DeviceLoader>, window: &Window) -> VkResult<Self> {}
+impl<'a> Renderer<'a> {
+    pub fn new(device: &'a VRTDevice, window: &'a VRTWindow) -> VkResult<Self> {
+        let swapchain = Swapchain::new(&device, window.get_extent())?;
 
-    fn recreate_swapchain(&self, device: &VRTDevice) {
-        unsafe { device.get_device_ptr().device_wait_idle() }.result()?;
-
-        unsafe { self.cleanup_swapchain() };
-
-        let queue_family_indices =
-            QueueFamilyIndices::new(&self.instance, self.surface, self.physical_device)?
-                .complete()
-                .ok_or(VkError::NoSuitableGpu)?;
-        let swapchain_support =
-            SwapchainSupportDetails::new(&self.instance, self.surface, self.physical_device)?;
+        let command_buffers = Self::create_command_buffers(&device)?;
+        Ok(Self {
+            window,
+            swapchain,
+            command_buffers,
+            device,
+            current_frame_index: 0,
+            is_frame_started: false,
+        })
     }
 
-    fn create_command_buffers(
-        device: &VRTDevice,
-        command_buffer_count: u32,
-    ) -> VkResult<SmallVec<CommandBuffer>> {
+    fn recreate_swapchain(&mut self) -> VkResult<()> {
+        let mut extent = self.window.get_extent();
+        while extent.width == 0 || extent.height == 0 {
+            extent = self.window.get_extent();
+        }
+        self.swapchain = Swapchain::new(&self.device, extent)?;
+        Ok(())
+    }
+
+    fn create_command_buffers(device: &VRTDevice) -> VkResult<SmallVec<CommandBuffer>> {
         let alloc_info = CommandBufferAllocateInfoBuilder::new()
             .command_pool(device.get_command_pool())
             .level(CommandBufferLevel::PRIMARY)
-            .command_buffer_count(command_buffer_count);
+            .command_buffer_count(MAX_FRAMES_IN_FLIGHT as u32);
 
         let command_buffers = unsafe {
             device
@@ -51,6 +62,50 @@ impl Renderer {
         .result()?;
 
         Ok(command_buffers)
+    }
+
+    fn free_command_buffers(&mut self) {
+        unsafe {
+            self.device.get_device_ptr().free_command_buffers(
+                self.device.get_command_pool(),
+                self.command_buffers.as_slice(),
+            );
+        }
+    }
+
+    fn begin_frame(&mut self) -> VkResult<CommandBuffer> {
+        let image_index_result = self.swapchain.acquire_next_image(self.current_frame_index);
+
+        let image_index = match image_index_result {
+            Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
+                self.recreate_swapchain()?;
+                return Err(SwapChainExpired);
+            }
+            result => result,
+        };
+
+        self.is_frame_started = true;
+
+        let begin_info = CommandBufferBeginInfoBuilder::new();
+
+        let command_buffer = self.get_current_command_buffer();
+
+        unsafe {
+            self.device
+                .get_device_ptr()
+                .begin_command_buffer(command_buffer, &begin_info)
+        }
+        .result()?;
+
+        Ok(command_buffer)
+    }
+
+    fn end_frame() {
+        
+    }
+
+    fn get_current_command_buffer(&self) -> CommandBuffer {
+        self.command_buffers[self.current_frame_index as usize]
     }
 
     fn begin_swapchain_render_pass() {
@@ -83,5 +138,11 @@ impl Renderer {
         unsafe {
             device.cmd_end_render_pass(command_buffer);
         }
+    }
+}
+
+impl<'a> Drop for Renderer<'a> {
+    fn drop(&mut self) {
+        self.free_command_buffers();
     }
 }
