@@ -361,6 +361,18 @@ impl Swapchain {
             capabilities.current_extent
         }
     }
+
+    pub fn get_render_pass(&self) -> RenderPass {
+        self.render_pass
+    }
+
+    pub fn get_frame_buffer(&self) -> Vec<Framebuffer> {
+        self.framebuffers
+    }
+
+    pub fn get_extent(&self) -> Extent2D {
+        self.extent
+    }
 }
 
 impl Drop for Swapchain {

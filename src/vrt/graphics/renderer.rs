@@ -13,6 +13,7 @@ use erupt::vk::RenderPassBeginInfoBuilder;
 use erupt::vk::{
     CommandBufferAllocateInfoBuilder, CommandBufferBeginInfoBuilder, CommandBufferLevel,
 };
+use erupt::vk1_0::SubpassContents;
 use erupt::SmallVec;
 
 pub struct Renderer<'a> {
@@ -100,15 +101,13 @@ impl<'a> Renderer<'a> {
         Ok(command_buffer)
     }
 
-    fn end_frame() {
-        
-    }
+    fn end_frame() {}
 
     fn get_current_command_buffer(&self) -> CommandBuffer {
         self.command_buffers[self.current_frame_index as usize]
     }
 
-    fn begin_swapchain_render_pass() {
+    fn begin_swapchain_render_pass(&self) {
         let clear_color = ClearValue {
             color: ClearColorValue {
                 float32: [0.0, 0.0, 0.0, 1.0],
@@ -116,27 +115,29 @@ impl<'a> Renderer<'a> {
         };
 
         let render_pass_info = RenderPassBeginInfoBuilder::new()
-            .render_pass(render_pass)
-            .framebuffer(framebuffer)
+            .render_pass(self.swapchain.get_render_pass())
+            .framebuffer(self.swapchain.get_frame_buffer()[self.current_frame_index])
             .render_area(
                 *Rect2DBuilder::new()
                     .offset(*Offset2DBuilder::new().x(0).y(0))
-                    .extent(*extent),
+                    .extent(self.swapchain.get_extent()),
             )
             .clear_values(std::slice::from_ref(&clear_color));
 
         unsafe {
-            device.cmd_begin_render_pass(
-                command_buffer,
+            self.device.get_device_ptr().cmd_begin_render_pass(
+                self.get_current_command_buffer(),
                 &render_pass_info,
                 SubpassContents::INLINE,
             );
         }
     }
 
-    fn end_swapchain_render_pass() {
+    fn end_swapchain_render_pass(&self) {
         unsafe {
-            device.cmd_end_render_pass(command_buffer);
+            self.device
+                .get_device_ptr()
+                .cmd_end_render_pass(self.get_current_command_buffer());
         }
     }
 }
