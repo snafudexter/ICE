@@ -15,35 +15,36 @@ use erupt::vk::{
 };
 use erupt::vk1_0::SubpassContents;
 use erupt::SmallVec;
+use std::convert::TryFrom;
+use std::sync::Arc;
+use winit::window::Window;
 
-pub struct Renderer<'a> {
-    window: &'a VRTWindow,
+pub struct VRTRenderer {
     swapchain: Swapchain,
     command_buffers: SmallVec<CommandBuffer>,
-    device: &'a VRTDevice,
+    device: Arc<VRTDevice>,
     current_frame_index: usize,
     is_frame_started: bool,
 }
 
-impl<'a> Renderer<'a> {
-    pub fn new(device: &'a VRTDevice, window: &'a VRTWindow) -> VkResult<Self> {
+impl VRTRenderer {
+    pub fn new(device: Arc<VRTDevice>, window: &VRTWindow) -> VkResult<Self> {
         let swapchain = Swapchain::new(&device, window.get_extent())?;
 
         let command_buffers = Self::create_command_buffers(&device)?;
         Ok(Self {
-            window,
             swapchain,
-            command_buffers,
             device,
+            command_buffers,
             current_frame_index: 0,
             is_frame_started: false,
         })
     }
 
-    fn recreate_swapchain(&mut self) -> VkResult<()> {
-        let mut extent = self.window.get_extent();
+    fn recreate_swapchain(&mut self, window: &VRTWindow) -> VkResult<()> {
+        let mut extent = window.get_extent();
         while extent.width == 0 || extent.height == 0 {
-            extent = self.window.get_extent();
+            extent = window.get_extent();
         }
         self.swapchain = Swapchain::new(&self.device, extent)?;
         Ok(())
@@ -74,12 +75,12 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    fn begin_frame(&mut self) -> VkResult<CommandBuffer> {
+    pub fn begin_frame(&mut self, window: &VRTWindow) -> VkResult<CommandBuffer> {
         let image_index_result = self.swapchain.acquire_next_image(self.current_frame_index);
 
         let image_index = match image_index_result {
             Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
-                self.recreate_swapchain()?;
+                self.recreate_swapchain(window)?;
                 return Err(SwapChainExpired);
             }
             result => result,
@@ -101,13 +102,43 @@ impl<'a> Renderer<'a> {
         Ok(command_buffer)
     }
 
-    fn end_frame() {}
+    pub fn end_frame(&mut self, window: &mut VRTWindow) {
+        let command_buffer = self.get_current_command_buffer();
+        unsafe {
+            self.device
+                .get_device_ptr()
+                .end_command_buffer(command_buffer)
+                .unwrap();
+        }
+
+        let present_result = self
+            .swapchain
+            .submit_command_buffer(
+                &self.device,
+                &command_buffer,
+                &u32::try_from(self.current_frame_index).unwrap(),
+            )
+            .unwrap();
+
+        if present_result.raw == vk::Result::ERROR_OUT_OF_DATE_KHR
+            || present_result.raw == vk::Result::SUBOPTIMAL_KHR
+            || window.was_window_resized()
+        {
+            window.reset_resized_flag();
+            self.recreate_swapchain(window);
+        } else {
+            present_result.result();
+        }
+
+        self.is_frame_started = true;
+        self.current_frame_index = (self.current_frame_index + 1) % MAX_FRAMES_IN_FLIGHT;
+    }
 
     fn get_current_command_buffer(&self) -> CommandBuffer {
         self.command_buffers[self.current_frame_index as usize]
     }
 
-    fn begin_swapchain_render_pass(&self) {
+    pub fn begin_swapchain_render_pass(&self, command_buffer: CommandBuffer) {
         let clear_color = ClearValue {
             color: ClearColorValue {
                 float32: [0.0, 0.0, 0.0, 1.0],
@@ -126,23 +157,23 @@ impl<'a> Renderer<'a> {
 
         unsafe {
             self.device.get_device_ptr().cmd_begin_render_pass(
-                self.get_current_command_buffer(),
+                command_buffer,
                 &render_pass_info,
                 SubpassContents::INLINE,
             );
         }
     }
 
-    fn end_swapchain_render_pass(&self) {
+    pub fn end_swapchain_render_pass(&self, command_buffer: CommandBuffer) {
         unsafe {
             self.device
                 .get_device_ptr()
-                .cmd_end_render_pass(self.get_current_command_buffer());
+                .cmd_end_render_pass(command_buffer);
         }
     }
 }
 
-impl<'a> Drop for Renderer<'a> {
+impl Drop for VRTRenderer {
     fn drop(&mut self) {
         self.free_command_buffers();
     }

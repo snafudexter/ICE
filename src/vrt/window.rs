@@ -1,3 +1,5 @@
+use std::ops::{Deref, DerefMut};
+
 use erupt::vk::Extent2D;
 use winit::dpi::{LogicalPosition, LogicalSize};
 use winit::error::OsError;
@@ -58,7 +60,11 @@ impl VRTWindow {
         self.resized = true;
     }
 
-    fn reset_resized_flag(&mut self) {
+    pub fn reset_resized_flag(&mut self) {
         self.resized = false;
+    }
+
+    pub fn was_window_resized(&self) -> bool {
+        self.resized
     }
 }

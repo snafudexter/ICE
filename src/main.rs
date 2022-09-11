@@ -11,10 +11,13 @@ fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
     let event_loop = EventLoop::new();
     let _logger = flexi_logger::Logger::try_with_env_or_str("info")?.start()?;
-    let mut window = VRTWindow::build_window(&event_loop, APP_NAME, WINDOW_WIDTH, WINDOW_HEIGHT)
-        .expect("Cannot create window.");
 
-    let app = VRTApp::new(window.get_window_ptr())?;
-    app.run(event_loop, &mut window);
+    let mut app = Box::leak(Box::new(VRTApp::new(
+        &event_loop,
+        APP_NAME,
+        WINDOW_WIDTH,
+        WINDOW_HEIGHT,
+    )));
+    app.run(event_loop);
     Ok(())
 }

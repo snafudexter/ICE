@@ -90,6 +90,7 @@ impl Error for VkError {
             // VkError::Image(err) => Some(err),
             // VkError::ObjLoad(err) => Some(err),
             VkError::ValidationLayerUnavailable
+            | VkError::SwapChainExpired
             | VkError::NoVulkanGpu
             | VkError::NoSuitableGpu
             | VkError::NoSuitableMemoryType

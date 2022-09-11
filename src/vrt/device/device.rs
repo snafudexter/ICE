@@ -1,5 +1,6 @@
 use crate::vrt::device::queue::{CompleteQueueFamilyIndices, QueueFamilyIndices, Queues};
 use crate::vrt::utils::result::{VkError, VkResult};
+use crate::vrt::window::VRTWindow;
 use erupt::utils::surface;
 use erupt::vk::CommandPool;
 use erupt::vk::CommandPoolCreateInfoBuilder;
@@ -21,8 +22,6 @@ use winit::window::Window;
 
 #[cfg(debug_assertions)]
 use crate::vrt::utils::debug;
-
-use super::swapchain::Swapchain;
 
 const DEVICE_EXTENSIONS: &[*const c_char] = &[KHR_SWAPCHAIN_EXTENSION_NAME];
 
@@ -48,14 +47,14 @@ pub struct VRTDevice {
 }
 
 impl VRTDevice {
-    pub fn new(window: &Window) -> VkResult<Self> {
+    pub fn new(window: &VRTWindow) -> VkResult<Self> {
         let entry = EntryLoader::new()?;
-        let instance = Self::create_instance(window, &entry)?;
+        let instance = Self::create_instance(window.get_window_ptr(), &entry)?;
 
         #[cfg(debug_assertions)]
         let debug_messenger = debug::Messenger::new(&instance)?;
 
-        let surface = Self::create_surface(window, &instance)?;
+        let surface = Self::create_surface(window.get_window_ptr(), &instance)?;
 
         let (physical_device, queue_family_indices, swapchain_support) =
             Self::pick_physical_device(&instance, surface)?;
@@ -90,10 +89,6 @@ impl VRTDevice {
 
     pub fn get_command_pool(&self) -> CommandPool {
         self.command_pool
-    }
-
-    pub fn get_swapchain_ptr(&self) -> Arc<Swapchain> {
-        self.swapchain.clone()
     }
 
     pub fn get_queue_family_indices(&self) -> CompleteQueueFamilyIndices {
@@ -291,83 +286,83 @@ impl VRTDevice {
         Ok(unsafe { device.create_command_pool(&pool_info, None) }.result()?)
     }
 
-    fn recreate_swapchain(&mut self, window: &Window) -> VkResult<()> {
-        unsafe { self.device.device_wait_idle() }.result()?;
+    // fn recreate_swapchain(&mut self, window: &Window) -> VkResult<()> {
+    //     unsafe { self.device.device_wait_idle() }.result()?;
 
-        unsafe { self.cleanup_swapchain() };
+    //     unsafe { self.cleanup_swapchain() };
 
-        let queue_family_indices =
-            QueueFamilyIndices::new(&self.instance, self.surface, self._physical_device)?
-                .complete()
-                .ok_or(VkError::NoSuitableGpu)?;
-        let swapchain_support =
-            SwapchainSupportDetails::new(&self.instance, self.surface, self._physical_device)?;
+    //     let queue_family_indices =
+    //         QueueFamilyIndices::new(&self.instance, self.surface, self._physical_device)?
+    //             .complete()
+    //             .ok_or(VkError::NoSuitableGpu)?;
+    //     let swapchain_support =
+    //         SwapchainSupportDetails::new(&self.instance, self.surface, self._physical_device)?;
 
-        self.swapchain = Self::create_swapchain(
-            window,
-            self.surface,
-            queue_family_indices,
-            &swapchain_support,
-            &self.device,
-        )?;
+    //     self.swapchain = Self::create_swapchain(
+    //         window,
+    //         self.surface,
+    //         queue_family_indices,
+    //         &swapchain_support,
+    //         &self.device,
+    //     )?;
 
-        self.pipeline.render_pass =
-            Self::create_render_pass(&self.device, self.swapchain.image_format)?;
-        let (pipeline_layout, graphics_pipeline) = Self::create_graphics_pipeline(
-            &self.device,
-            self.swapchain.extent,
-            self.pipeline.render_pass,
-        )?;
-        self.pipeline.layout = pipeline_layout;
-        self.pipeline.pipeline = graphics_pipeline;
+    //     self.pipeline.render_pass =
+    //         Self::create_render_pass(&self.device, self.swapchain.image_format)?;
+    //     let (pipeline_layout, graphics_pipeline) = Self::create_graphics_pipeline(
+    //         &self.device,
+    //         self.swapchain.extent,
+    //         self.pipeline.render_pass,
+    //     )?;
+    //     self.pipeline.layout = pipeline_layout;
+    //     self.pipeline.pipeline = graphics_pipeline;
 
-        self.framebuffers = Self::create_framebuffers(
-            &self.device,
-            self.swapchain.extent,
-            &self.swapchain.image_views,
-            self.pipeline.render_pass,
-        )?;
+    //     self.framebuffers = Self::create_framebuffers(
+    //         &self.device,
+    //         self.swapchain.extent,
+    //         &self.swapchain.image_views,
+    //         self.pipeline.render_pass,
+    //     )?;
 
-        self.command_buffers = Self::create_command_buffers(
-            &self.device,
-            self.swapchain.extent,
-            self.pipeline.render_pass,
-            self.pipeline.pipeline,
-            &self.framebuffers,
-            self.command_pool,
-        )?;
+    //     self.command_buffers = Self::create_command_buffers(
+    //         &self.device,
+    //         self.swapchain.extent,
+    //         self.pipeline.render_pass,
+    //         self.pipeline.pipeline,
+    //         &self.framebuffers,
+    //         self.command_pool,
+    //     )?;
 
-        self.sync
-            .images_in_flight
-            .resize(self.swapchain.images.len(), None);
+    //     self.sync
+    //         .images_in_flight
+    //         .resize(self.swapchain.images.len(), None);
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
-    unsafe fn cleanup_swapchain(&mut self) {
-        for framebuffer in &self.framebuffers {
-            self.device.destroy_framebuffer(*framebuffer, None);
-        }
+    // unsafe fn cleanup_swapchain(&mut self) {
+    //     for framebuffer in &self.framebuffers {
+    //         self.device.destroy_framebuffer(*framebuffer, None);
+    //     }
 
-        self.device
-            .free_command_buffers(self.command_pool, &self.command_buffers);
+    //     self.device
+    //         .free_command_buffers(self.command_pool, &self.command_buffers);
 
-        self.device
-            .destroy_pipeline(Some(self.pipeline.pipeline), None);
+    //     self.device
+    //         .destroy_pipeline(Some(self.pipeline.pipeline), None);
 
-        self.device
-            .destroy_pipeline_layout(Some(self.pipeline.layout), None);
+    //     self.device
+    //         .destroy_pipeline_layout(Some(self.pipeline.layout), None);
 
-        self.device
-            .destroy_render_pass(Some(self.pipeline.render_pass), None);
+    //     self.device
+    //         .destroy_render_pass(Some(self.pipeline.render_pass), None);
 
-        for image_view in &self.swapchain.image_views {
-            self.device.destroy_image_view(Some(*image_view), None);
-        }
+    //     for image_view in &self.swapchain.image_views {
+    //         self.device.destroy_image_view(Some(*image_view), None);
+    //     }
 
-        self.device
-            .destroy_swapchain_khr(Some(self.swapchain.swapchain), None);
-    }
+    //     self.device
+    //         .destroy_swapchain_khr(Some(self.swapchain.swapchain), None);
+    // }
 }
 
 impl Drop for VRTDevice {

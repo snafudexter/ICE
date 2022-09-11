@@ -21,7 +21,7 @@ use erupt::DeviceLoader;
 use erupt::{InstanceLoader, SmallVec};
 use std::sync::Arc;
 
-pub const MAX_FRAMES_IN_FLIGHT: usize = 2;
+pub const MAX_FRAMES_IN_FLIGHT: usize = 3;
 
 #[derive(Clone)]
 pub struct Swapchain {
@@ -89,10 +89,10 @@ impl Swapchain {
         .result()
     }
 
-    fn submit_command_buffer(
+    pub fn submit_command_buffer(
         &self,
         device: &VRTDevice,
-        command_buffers: &SmallVec<CommandBuffer>,
+        command_buffers: &CommandBuffer,
         image_index: &u32,
     ) -> VkResult<erupt::utils::VulkanResult<()>> {
         let submit_info = SubmitInfoBuilder::new()
@@ -102,9 +102,7 @@ impl Swapchain {
             .wait_dst_stage_mask(std::slice::from_ref(
                 &PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
             ))
-            .command_buffers(std::slice::from_ref(
-                &command_buffers[*image_index as usize],
-            ))
+            .command_buffers(std::slice::from_ref(&command_buffers))
             .signal_semaphores(std::slice::from_ref(
                 &self.sync.render_finished_semaphores[self.sync.current_frame],
             ));
@@ -366,8 +364,8 @@ impl Swapchain {
         self.render_pass
     }
 
-    pub fn get_frame_buffer(&self) -> Vec<Framebuffer> {
-        self.framebuffers
+    pub fn get_frame_buffer(&self) -> &Vec<Framebuffer> {
+        &self.framebuffers
     }
 
     pub fn get_extent(&self) -> Extent2D {
