@@ -17,7 +17,6 @@ use erupt::vk1_0::SubpassContents;
 use erupt::SmallVec;
 use std::convert::TryFrom;
 use std::sync::Arc;
-use winit::window::Window;
 
 pub struct VRTRenderer {
     swapchain: Swapchain,
@@ -125,9 +124,9 @@ impl VRTRenderer {
             || window.was_window_resized()
         {
             window.reset_resized_flag();
-            self.recreate_swapchain(window);
+            self.recreate_swapchain(window).unwrap();
         } else {
-            present_result.result();
+            present_result.result().unwrap();
         }
 
         self.is_frame_started = true;

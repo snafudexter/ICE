@@ -1,5 +1,3 @@
-use std::ops::{Deref, DerefMut};
-
 use erupt::vk::Extent2D;
 use winit::dpi::{LogicalPosition, LogicalSize};
 use winit::error::OsError;

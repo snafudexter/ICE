@@ -1,11 +1,9 @@
 use crate::VRTWindow;
-use std::ops::DerefMut;
 use std::process;
 use std::sync::Arc;
 
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
-use winit::window::Window;
 
 use super::device::device::VRTDevice;
 
@@ -24,7 +22,7 @@ pub struct VRTApp {
 
 impl VRTApp {
     pub fn new(event_loop: &EventLoop<()>, app_name: &str, width: u32, height: u32) -> Self {
-        let mut window = VRTWindow::build_window(&event_loop, app_name, width, height)
+        let window = VRTWindow::build_window(&event_loop, app_name, width, height)
             .expect("Cannot create window.");
 
         let device = Arc::new(VRTDevice::new(&window).expect("Cannot create device"));
