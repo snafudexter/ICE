@@ -23,7 +23,7 @@ use std::sync::Arc;
 
 pub const MAX_FRAMES_IN_FLIGHT: usize = 3;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Swapchain {
     image_views: Vec<ImageView>,
     extent: Extent2D,
@@ -44,7 +44,7 @@ pub struct SwapchainSupportDetails {
 }
 
 impl Swapchain {
-    pub fn new(device: &VRTDevice, extent: Extent2D) -> VkResult<Self> {
+    pub fn new(device: &VRTDevice, extent: Extent2D, old_swapchain: Arc<std::option::Option<Swapchain>>) -> VkResult<Self> {
         let (extent, image_format, images, swapchain) = Self::create_swapchain(extent, device)?;
 
         let image_views = Self::create_image_views(device, &images, image_format)?;
@@ -139,6 +139,7 @@ impl Swapchain {
     fn create_swapchain(
         extent: Extent2D,
         device: &VRTDevice,
+        old_swapchain: Arc<std::option::Option<Swapchain>>
     ) -> VkResult<(Extent2D, Format, SmallVec<Image>, SwapchainKHR)> {
         let swapchain_support = device.get_swapchain_support()?;
 
@@ -165,6 +166,10 @@ impl Swapchain {
             (SharingMode::CONCURRENT, &indices[..])
         };
 
+        let old_swapchain = match old_swapchain {
+            
+        };
+
         let create_info = SwapchainCreateInfoKHRBuilder::new()
             .surface(device.get_surface())
             .min_image_count(image_count)
@@ -178,6 +183,7 @@ impl Swapchain {
             .pre_transform(swapchain_support.capabilities().current_transform)
             .composite_alpha(CompositeAlphaFlagBitsKHR::OPAQUE_KHR)
             .present_mode(present_mode)
+            .old_swapchain()
             .clipped(true);
 
         let swapchain = unsafe {
@@ -371,10 +377,36 @@ impl Swapchain {
     pub fn get_extent(&self) -> Extent2D {
         self.extent
     }
+
+    pub fn destroy_swapchain(&mut self) {
+        unsafe {
+            for image_view in &self.image_views {
+                self.device.destroy_image_view(*image_view, None);
+            }
+
+            self.device.destroy_swapchain_khr(self.swapchain, None);
+
+            for framebuffer in &self.framebuffers {
+                self.device.destroy_framebuffer(*framebuffer, None);
+            }
+
+            self.device.destroy_render_pass(self.render_pass, None);
+
+            for i in 0..MAX_FRAMES_IN_FLIGHT {
+                self.device
+                    .destroy_fence(self.sync.in_flight_fences[i], None);
+                self.device
+                    .destroy_semaphore(self.sync.render_finished_semaphores[i], None);
+                self.device
+                    .destroy_semaphore(self.sync.image_available_semaphores[i], None);
+            }
+        }
+    }
 }
 
 impl Drop for Swapchain {
     fn drop(&mut self) {
+        println!("drop swapchain");
         unsafe {
             for image_view in &self.image_views {
                 self.device.destroy_image_view(*image_view, None);

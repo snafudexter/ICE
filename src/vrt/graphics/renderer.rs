@@ -45,7 +45,15 @@ impl VRTRenderer {
         while extent.width == 0 || extent.height == 0 {
             extent = window.get_extent();
         }
-        self.swapchain = Swapchain::new(&self.device, extent)?;
+
+        unsafe {
+            self.device.get_device_ptr().device_wait_idle().unwrap();
+        }
+        println!("destroy swapchain");
+        //self.swapchain.destroy_swapchain();
+        println!("recreate swapchain");
+        self.swapchain = Swapchain::new(&self.device, extent).unwrap();
+        println!("done swapchain");
         Ok(())
     }
 
@@ -123,6 +131,7 @@ impl VRTRenderer {
             || present_result.raw == vk::Result::SUBOPTIMAL_KHR
             || window.was_window_resized()
         {
+                println!("problem {:?}", &window.was_window_resized());
             window.reset_resized_flag();
             self.recreate_swapchain(window).unwrap();
         } else {

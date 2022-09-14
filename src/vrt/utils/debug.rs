@@ -37,6 +37,7 @@ impl Messenger {
 pub fn check_validation_layer_support(entry: &EntryLoader) -> VkResult<bool> {
     let available_layers = unsafe { entry.enumerate_instance_layer_properties(None) }.result()?;
 
+    println!("available_layers {:?}", &available_layers);
     Ok(VALIDATION_LAYERS
         .iter()
         .map(|layer_name| unsafe { CStr::from_ptr(*layer_name) })

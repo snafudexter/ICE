@@ -58,6 +58,7 @@ impl VRTDevice {
 
         let (physical_device, queue_family_indices, swapchain_support) =
             Self::pick_physical_device(&instance, surface)?;
+        println!("physical_device {:?}", &physical_device);
 
         let (device, queues) =
             Self::create_logical_device(&instance, physical_device, queue_family_indices)?;
