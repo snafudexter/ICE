@@ -4,9 +4,14 @@ use std::io::Read;
 use std::sync::Arc;
 
 use erupt::vk1_0::{
-    PipelineInputAssemblyStateCreateInfoBuilder, PipelineShaderStageCreateInfoBuilder,
-    PipelineVertexInputStateCreateInfoBuilder, PrimitiveTopology, ShaderModule,
-    ShaderModuleCreateInfoBuilder, ShaderStageFlagBits,
+    BlendFactor, BlendOp, ColorComponentFlags, CullModeFlags, DynamicState, FrontFace, LogicOp,
+    PipelineColorBlendAttachmentStateBuilder, PipelineColorBlendStateCreateInfoBuilder,
+    PipelineDynamicStateCreateInfo, PipelineDynamicStateCreateInfoBuilder,
+    PipelineInputAssemblyStateCreateInfoBuilder, PipelineLayoutCreateInfoBuilder,
+    PipelineMultisampleStateCreateInfoBuilder, PipelineRasterizationStateCreateInfoBuilder,
+    PipelineShaderStageCreateInfoBuilder, PipelineVertexInputStateCreateInfoBuilder, PolygonMode,
+    PrimitiveTopology, SampleCountFlagBits, ShaderModule, ShaderModuleCreateInfoBuilder,
+    ShaderStageFlagBits,
 };
 
 use crate::vrt::device::device::VRTDevice;
@@ -15,6 +20,11 @@ use crate::vrt::utils::result::VkResult;
 pub struct PipelineConfigInfo<'a> {
     input_assembly: PipelineInputAssemblyStateCreateInfoBuilder<'a>,
     vertex_input_info: PipelineVertexInputStateCreateInfoBuilder<'a>,
+    rasterizer: PipelineRasterizationStateCreateInfoBuilder<'a>,
+    color_blend_attachment: PipelineColorBlendAttachmentStateBuilder<'a>,
+    multisampling: PipelineMultisampleStateCreateInfoBuilder<'a>,
+    color_blending: PipelineColorBlendStateCreateInfoBuilder<'a>,
+    pipeline_layout_info: PipelineLayoutCreateInfoBuilder<'a>,
 }
 
 pub struct VRTPipeline {}
@@ -88,9 +98,57 @@ impl VRTPipeline {
 
         let vertex_input_info = PipelineVertexInputStateCreateInfoBuilder::new();
 
+        let rasterizer = PipelineRasterizationStateCreateInfoBuilder::new()
+            .depth_clamp_enable(false)
+            .rasterizer_discard_enable(false)
+            .polygon_mode(PolygonMode::FILL)
+            .line_width(1.0)
+            .cull_mode(CullModeFlags::BACK)
+            .front_face(FrontFace::CLOCKWISE)
+            .depth_bias_enable(false);
+
+        let multisampling = PipelineMultisampleStateCreateInfoBuilder::new()
+            .sample_shading_enable(false)
+            .rasterization_samples(SampleCountFlagBits::_1)
+            .min_sample_shading(1.0)
+            .alpha_to_coverage_enable(false)
+            .alpha_to_one_enable(false);
+
+        let color_blend_attachment = PipelineColorBlendAttachmentStateBuilder::new()
+            .color_write_mask(
+                ColorComponentFlags::R
+                    | ColorComponentFlags::G
+                    | ColorComponentFlags::B
+                    | ColorComponentFlags::A,
+            )
+            .blend_enable(false)
+            .src_color_blend_factor(BlendFactor::ONE)
+            .dst_color_blend_factor(BlendFactor::ZERO)
+            .color_blend_op(BlendOp::ADD)
+            .src_alpha_blend_factor(BlendFactor::ONE)
+            .dst_alpha_blend_factor(BlendFactor::ZERO)
+            .alpha_blend_op(BlendOp::ADD);
+
+        let color_blending = PipelineColorBlendStateCreateInfoBuilder::new()
+            .logic_op_enable(false)
+            .logic_op(LogicOp::COPY)
+            //.attachments(std::slice::from_ref(&color_blend_attachment))
+            .blend_constants([0.0, 0.0, 0.0, 0.0]);
+
+        let pipeline_layout_info = PipelineLayoutCreateInfoBuilder::new();
+
+        let mut dynamic_state_info = PipelineDynamicStateCreateInfoBuilder::new()
+            .dynamic_states(&[DynamicState::VIEWPORT , DynamicState::SCISSOR]);
+            dynamic_state_info.dynamic_state_count = 2;
+
         PipelineConfigInfo {
             input_assembly,
             vertex_input_info,
+            rasterizer,
+            multisampling,
+            color_blend_attachment,
+            color_blending,
+            pipeline_layout_info,
         }
     }
 }

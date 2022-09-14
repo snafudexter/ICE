@@ -21,7 +21,7 @@ use erupt::DeviceLoader;
 use erupt::{InstanceLoader, SmallVec};
 use std::sync::Arc;
 
-pub const MAX_FRAMES_IN_FLIGHT: usize = 3;
+pub const MAX_FRAMES_IN_FLIGHT: usize = 2;
 
 #[derive(Clone, Debug)]
 pub struct Swapchain {
@@ -95,11 +95,26 @@ impl Swapchain {
     }
 
     pub fn submit_command_buffer(
-        &self,
+        &mut self,
         device: &VRTDevice,
         command_buffers: &CommandBuffer,
         image_index: &u32,
     ) -> VkResult<erupt::utils::VulkanResult<()>> {
+        if self.sync.images_in_flight[*image_index as usize] == None {
+            unsafe {
+                self.device.wait_for_fences(
+                    std::slice::from_ref(&self.sync.in_flight_fences[*image_index as usize]),
+                    true,
+                    u64::MAX,
+                )
+            }
+            .result()
+            .unwrap();
+        }
+
+        self.sync.images_in_flight[*image_index as usize] =
+            Some(self.sync.in_flight_fences[self.sync.current_frame]);
+
         let submit_info = SubmitInfoBuilder::new()
             .wait_semaphores(std::slice::from_ref(
                 &self.sync.image_available_semaphores[self.sync.current_frame],
@@ -117,7 +132,7 @@ impl Swapchain {
                 &self.sync.in_flight_fences[self.sync.current_frame],
             ))
         }
-        .result()?;
+        .result().unwrap();
 
         unsafe {
             self.device.queue_submit(
@@ -126,7 +141,7 @@ impl Swapchain {
                 self.sync.in_flight_fences[self.sync.current_frame],
             )
         }
-        .result()?;
+        .result().unwrap();
 
         let present_info = PresentInfoKHRBuilder::new()
             .wait_semaphores(std::slice::from_ref(
@@ -135,10 +150,14 @@ impl Swapchain {
             .swapchains(std::slice::from_ref(&self.swapchain))
             .image_indices(std::slice::from_ref(&image_index));
 
-        Ok(unsafe {
+        let result = unsafe {
             self.device
                 .queue_present_khr(device.get_queues().present, &present_info)
-        })
+        };
+
+        self.sync.current_frame = (self.sync.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
+
+        Ok(result)
     }
 
     fn create_swapchain(

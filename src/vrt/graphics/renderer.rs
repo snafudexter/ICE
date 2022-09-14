@@ -1,6 +1,7 @@
 use crate::vrt::device::device::VRTDevice;
 use crate::vrt::device::swapchain::Swapchain;
 use crate::vrt::device::swapchain::MAX_FRAMES_IN_FLIGHT;
+use crate::vrt::utils::result::VkError;
 use crate::vrt::utils::result::{VkError::SwapChainExpired, VkResult};
 use crate::VRTWindow;
 use erupt::vk;
@@ -80,10 +81,16 @@ impl VRTRenderer {
                 self.device.get_command_pool(),
                 self.command_buffers.as_slice(),
             );
+            self.command_buffers.clear();
         }
     }
 
     pub fn begin_frame(&mut self, window: &VRTWindow) -> VkResult<CommandBuffer> {
+
+        if self.is_frame_started == true {
+           return Err(VkError::FrameAlreadyStarted);
+        }
+
         let image_index_result = self.swapchain.acquire_next_image(self.current_frame_index);
 
         let image_index = match image_index_result {
@@ -92,7 +99,9 @@ impl VRTRenderer {
                 return Err(SwapChainExpired);
             }
             result => result,
-        };
+        }.unwrap();
+
+        self.current_frame_index = image_index as usize;
 
         self.is_frame_started = true;
 
@@ -139,8 +148,8 @@ impl VRTRenderer {
             present_result.result().unwrap();
         }
 
-        self.is_frame_started = true;
-        self.current_frame_index = (self.current_frame_index + 1) % MAX_FRAMES_IN_FLIGHT;
+        self.is_frame_started = false;
+        //self.current_frame_index = (self.current_frame_index + 1) % MAX_FRAMES_IN_FLIGHT;
     }
 
     fn get_current_command_buffer(&self) -> CommandBuffer {
@@ -148,6 +157,11 @@ impl VRTRenderer {
     }
 
     pub fn begin_swapchain_render_pass(&self, command_buffer: CommandBuffer) {
+        if self.is_frame_started == false {
+            println!("cannot begin swapchain render pass");
+            return;
+        }
+
         let clear_color = ClearValue {
             color: ClearColorValue {
                 float32: [0.0, 0.0, 0.0, 1.0],
@@ -174,6 +188,10 @@ impl VRTRenderer {
     }
 
     pub fn end_swapchain_render_pass(&self, command_buffer: CommandBuffer) {
+        if self.is_frame_started == false {
+            println!("cannot end swapchain render pass ");
+            return;
+        }
         unsafe {
             self.device
                 .get_device_ptr()

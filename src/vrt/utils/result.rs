@@ -23,6 +23,7 @@ pub enum VkError {
     UnsupportedLayoutTransition,
     UnsupportedLinearBlitting,
     SwapChainExpired,
+    FrameAlreadyStarted
 }
 
 impl From<EntryLoaderError> for VkError {
@@ -77,6 +78,9 @@ impl fmt::Display for VkError {
             VkError::SwapChainExpired => {
                 f.write_str("Swap chain out of date ERROR_OUT_OF_DATE_KHR")
             }
+            VkError::FrameAlreadyStarted => {
+                f.write_str("Frame already started")
+            }
         }
     }
 }
@@ -96,6 +100,7 @@ impl Error for VkError {
             | VkError::NoSuitableMemoryType
             | VkError::NoSupportedFormat
             | VkError::UnsupportedLayoutTransition
+            | VkError::FrameAlreadyStarted
             | VkError::UnsupportedLinearBlitting => None,
         }
     }
