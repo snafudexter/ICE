@@ -11,6 +11,7 @@ use erupt::vk::{
     RenderPass, SurfaceCapabilitiesKHR, SurfaceFormatKHR, SurfaceKHR, API_VERSION_1_1,
     KHR_SWAPCHAIN_EXTENSION_NAME,
 };
+use erupt::vk1_0::CommandPoolCreateFlags;
 use erupt::SmallVec;
 use erupt::{DeviceLoader, EntryLoader, InstanceLoader};
 use std::collections::BTreeSet;
@@ -281,8 +282,11 @@ impl VRTDevice {
         indices: &CompleteQueueFamilyIndices,
         device: &DeviceLoader,
     ) -> VkResult<CommandPool> {
-        let pool_info =
-            CommandPoolCreateInfoBuilder::new().queue_family_index(indices.graphics_family());
+        let pool_info = CommandPoolCreateInfoBuilder::new()
+            .queue_family_index(indices.graphics_family())
+            .flags(
+                CommandPoolCreateFlags::TRANSIENT | CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
+            );
 
         Ok(unsafe { device.create_command_pool(&pool_info, None) }.result()?)
     }

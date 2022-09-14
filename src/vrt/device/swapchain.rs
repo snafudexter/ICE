@@ -44,8 +44,13 @@ pub struct SwapchainSupportDetails {
 }
 
 impl Swapchain {
-    pub fn new(device: &VRTDevice, extent: Extent2D, old_swapchain: Arc<std::option::Option<Swapchain>>) -> VkResult<Self> {
-        let (extent, image_format, images, swapchain) = Self::create_swapchain(extent, device)?;
+    pub fn new(
+        device: &VRTDevice,
+        extent: Extent2D,
+        old_swapchain: std::option::Option<SwapchainKHR>,
+    ) -> VkResult<Self> {
+        let (extent, image_format, images, swapchain) =
+            Self::create_swapchain(extent, device, old_swapchain)?;
 
         let image_views = Self::create_image_views(device, &images, image_format)?;
 
@@ -139,7 +144,7 @@ impl Swapchain {
     fn create_swapchain(
         extent: Extent2D,
         device: &VRTDevice,
-        old_swapchain: Arc<std::option::Option<Swapchain>>
+        old_swapchain: std::option::Option<SwapchainKHR>,
     ) -> VkResult<(Extent2D, Format, SmallVec<Image>, SwapchainKHR)> {
         let swapchain_support = device.get_swapchain_support()?;
 
@@ -167,8 +172,8 @@ impl Swapchain {
         };
 
         let old_swapchain = match old_swapchain {
-            Some() => todo!(),
-            None => todo!(),
+            Some(swapchain) => swapchain,
+            None => SwapchainKHR::null(),
         };
 
         let create_info = SwapchainCreateInfoKHRBuilder::new()
@@ -184,7 +189,7 @@ impl Swapchain {
             .pre_transform(swapchain_support.capabilities().current_transform)
             .composite_alpha(CompositeAlphaFlagBitsKHR::OPAQUE_KHR)
             .present_mode(present_mode)
-            .old_swapchain()
+            .old_swapchain(old_swapchain)
             .clipped(true);
 
         let swapchain = unsafe {
@@ -377,6 +382,10 @@ impl Swapchain {
 
     pub fn get_extent(&self) -> Extent2D {
         self.extent
+    }
+
+    pub fn get_swapchain_khr(&self) -> SwapchainKHR {
+        self.swapchain
     }
 
     pub fn destroy_swapchain(&mut self) {

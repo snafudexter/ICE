@@ -28,7 +28,7 @@ pub struct VRTRenderer {
 
 impl VRTRenderer {
     pub fn new(device: Arc<VRTDevice>, window: &VRTWindow) -> VkResult<Self> {
-        let swapchain = Swapchain::new(&device, window.get_extent())?;
+        let swapchain = Swapchain::new(&device, window.get_extent(), None)?;
 
         let command_buffers = Self::create_command_buffers(&device)?;
         Ok(Self {
@@ -52,7 +52,12 @@ impl VRTRenderer {
         println!("destroy swapchain");
         //self.swapchain.destroy_swapchain();
         println!("recreate swapchain");
-        self.swapchain = Swapchain::new(&self.device, extent).unwrap();
+        self.swapchain = Swapchain::new(
+            &self.device,
+            extent,
+            Some(self.swapchain.get_swapchain_khr()),
+        )
+        .unwrap();
         println!("done swapchain");
         Ok(())
     }
@@ -131,7 +136,7 @@ impl VRTRenderer {
             || present_result.raw == vk::Result::SUBOPTIMAL_KHR
             || window.was_window_resized()
         {
-                println!("problem {:?}", &window.was_window_resized());
+            println!("problem {:?}", &window.was_window_resized());
             window.reset_resized_flag();
             self.recreate_swapchain(window).unwrap();
         } else {
