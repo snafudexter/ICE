@@ -10,10 +10,6 @@ use super::device::device::VRTDevice;
 use super::graphics::renderer::VRTRenderer;
 use super::utils::result::VkResult;
 
-// Compiled shaders
-const VERTEX_SHADER_CODE: &[u8] = include_bytes!("./assets/shaders/vert.spirv");
-const FRAGMENT_SHADER_CODE: &[u8] = include_bytes!("./assets/shaders/frag.spirv");
-
 pub struct VRTApp {
     device: Arc<VRTDevice>,
     window: VRTWindow,
