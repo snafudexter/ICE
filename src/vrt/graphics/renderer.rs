@@ -49,16 +49,12 @@ impl VRTRenderer {
         unsafe {
             self.device.get_device_ptr().device_wait_idle().unwrap();
         }
-        println!("destroy swapchain");
-        //self.swapchain.destroy_swapchain();
-        println!("recreate swapchain");
         self.swapchain = Swapchain::new(
             &self.device,
             extent,
             Some(self.swapchain.get_swapchain_khr()),
         )
         .unwrap();
-        println!("done swapchain");
         Ok(())
     }
 
