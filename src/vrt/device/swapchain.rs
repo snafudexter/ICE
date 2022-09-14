@@ -167,7 +167,8 @@ impl Swapchain {
         };
 
         let old_swapchain = match old_swapchain {
-            
+            Some() => todo!(),
+            None => todo!(),
         };
 
         let create_info = SwapchainCreateInfoKHRBuilder::new()
