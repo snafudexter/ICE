@@ -25,10 +25,7 @@ use winit::window::Window;
 #[cfg(debug_assertions)]
 use crate::vrt::utils::debug;
 
-const DEVICE_EXTENSIONS: &[*const c_char] = &[
-    KHR_SWAPCHAIN_EXTENSION_NAME,
-    KHR_PORTABILITY_SUBSET_EXTENSION_NAME,
-];
+const DEVICE_EXTENSIONS: *const c_char = KHR_SWAPCHAIN_EXTENSION_NAME;
 
 pub const INSTANCE_EXTENSIONS: &[*const c_char] =
     &[KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME];
@@ -152,7 +149,9 @@ impl VRTDevice {
         #[cfg(debug_assertions)]
         extensions.extend(debug::EXTENSIONS);
 
-        extensions.extend(INSTANCE_EXTENSIONS);
+        if !std::env::consts::OS.contains("linux") {
+            extensions.extend(INSTANCE_EXTENSIONS);
+        }
 
         Ok(extensions)
     }
@@ -212,7 +211,14 @@ impl VRTDevice {
             unsafe { instance.enumerate_device_extension_properties(device, None, None) }
                 .result()?;
 
-        let required_extensions = DEVICE_EXTENSIONS
+        let device_extensions: &[*const c_char];
+        if !std::env::consts::OS.contains("linux") {
+            device_extensions = &[DEVICE_EXTENSIONS, KHR_PORTABILITY_SUBSET_EXTENSION_NAME];
+        } else {
+            device_extensions = &[DEVICE_EXTENSIONS];
+        }
+
+        let required_extensions = device_extensions
             .iter()
             .map(|ptr| unsafe { CStr::from_ptr(*ptr) });
 
@@ -244,10 +250,17 @@ impl VRTDevice {
 
         let device_features = PhysicalDeviceFeaturesBuilder::new();
 
+        let device_extensions: &[*const c_char];
+        if !std::env::consts::OS.contains("linux") {
+            device_extensions = &[DEVICE_EXTENSIONS, KHR_PORTABILITY_SUBSET_EXTENSION_NAME];
+        } else {
+            device_extensions = &[DEVICE_EXTENSIONS];
+        }
+
         let create_info = DeviceCreateInfoBuilder::new()
             .queue_create_infos(&queue_create_infos)
             .enabled_features(&device_features)
-            .enabled_extension_names(DEVICE_EXTENSIONS);
+            .enabled_extension_names(device_extensions);
 
         #[cfg(debug_assertions)]
         let create_info = create_info.enabled_layer_names(debug::VALIDATION_LAYERS);
@@ -265,26 +278,6 @@ impl VRTDevice {
 
     fn create_surface(window: &Window, instance: &InstanceLoader) -> VkResult<SurfaceKHR> {
         Ok(unsafe { surface::create_surface(instance, window, None) }.result()?)
-    }
-
-    fn create_framebuffers(
-        device: &DeviceLoader,
-        extent: &Extent2D,
-        image_views: &[ImageView],
-        render_pass: RenderPass,
-    ) -> VkResult<Vec<Framebuffer>> {
-        image_views
-            .iter()
-            .map(|image_view| {
-                let framebuffer_info = FramebufferCreateInfoBuilder::new()
-                    .render_pass(render_pass)
-                    .attachments(std::slice::from_ref(image_view))
-                    .width(extent.width)
-                    .height(extent.height)
-                    .layers(1);
-                unsafe { device.create_framebuffer(&framebuffer_info, None) }.map_err(VkError::Vk)
-            })
-            .collect()
     }
 
     fn create_command_pool(
