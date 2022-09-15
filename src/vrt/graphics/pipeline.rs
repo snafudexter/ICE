@@ -25,6 +25,7 @@ pub struct PipelineConfigInfo<'a> {
     multisampling: PipelineMultisampleStateCreateInfoBuilder<'a>,
     color_blending: PipelineColorBlendStateCreateInfoBuilder<'a>,
     pipeline_layout_info: PipelineLayoutCreateInfoBuilder<'a>,
+    dynamic_state_info : PipelineDynamicStateCreateInfoBuilder<'a>,
 }
 
 pub struct VRTPipeline {}
@@ -139,7 +140,6 @@ impl VRTPipeline {
 
         let mut dynamic_state_info = PipelineDynamicStateCreateInfoBuilder::new()
             .dynamic_states(&[DynamicState::VIEWPORT, DynamicState::SCISSOR]);
-        dynamic_state_info.dynamic_state_count = 2;
 
         PipelineConfigInfo {
             input_assembly,
@@ -149,6 +149,7 @@ impl VRTPipeline {
             color_blend_attachment,
             color_blending,
             pipeline_layout_info,
+            dynamic_state_info
         }
     }
 }
