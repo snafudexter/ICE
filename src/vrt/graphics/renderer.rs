@@ -14,7 +14,6 @@ use erupt::vk::RenderPassBeginInfoBuilder;
 use erupt::vk::{
     CommandBufferAllocateInfoBuilder, CommandBufferBeginInfoBuilder, CommandBufferLevel,
 };
-use erupt::vk1_0::PipelineViewportStateCreateInfoBuilder;
 use erupt::vk1_0::RenderPass;
 use erupt::vk1_0::SubpassContents;
 use erupt::vk1_0::ViewportBuilder;
