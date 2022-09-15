@@ -14,7 +14,10 @@ use erupt::vk::RenderPassBeginInfoBuilder;
 use erupt::vk::{
     CommandBufferAllocateInfoBuilder, CommandBufferBeginInfoBuilder, CommandBufferLevel,
 };
+use erupt::vk1_0::PipelineViewportStateCreateInfoBuilder;
+use erupt::vk1_0::RenderPass;
 use erupt::vk1_0::SubpassContents;
+use erupt::vk1_0::ViewportBuilder;
 use erupt::SmallVec;
 use std::convert::TryFrom;
 use std::sync::Arc;
@@ -188,6 +191,30 @@ impl VRTRenderer {
                 &render_pass_info,
                 SubpassContents::INLINE,
             );
+
+            let viewport = ViewportBuilder::new()
+                .x(0.0)
+                .y(0.0)
+                .width(self.swapchain.get_extent().width as f32)
+                .height(self.swapchain.get_extent().height as f32)
+                .min_depth(0.0)
+                .max_depth(1.0);
+
+            let scissor = Rect2DBuilder::new()
+                .offset(*Offset2DBuilder::new().x(0).y(0))
+                .extent(self.swapchain.get_extent());
+
+            self.device.get_device_ptr().cmd_set_viewport(
+                command_buffer,
+                0,
+                &std::slice::from_ref(&viewport),
+            );
+
+            self.device.get_device_ptr().cmd_set_scissor(
+                command_buffer,
+                0,
+                &std::slice::from_ref(&scissor),
+            );
         }
     }
 
@@ -201,6 +228,10 @@ impl VRTRenderer {
                 .get_device_ptr()
                 .cmd_end_render_pass(command_buffer);
         }
+    }
+
+    pub fn get_swapchain_render_pass(&self) -> RenderPass {
+        self.swapchain.get_render_pass()
     }
 }
 

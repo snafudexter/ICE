@@ -21,7 +21,7 @@ impl VRTWindow {
         let window = WindowBuilder::new()
             .with_title(app_name)
             .with_inner_size(LogicalSize::new(width, height))
-            .with_resizable(false)
+            .with_resizable(true)
             .build(event_loop)?;
 
         if let Some(monitor) = window.current_monitor() {

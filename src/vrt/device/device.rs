@@ -9,6 +9,7 @@ use erupt::vk::{
     DeviceQueueCreateInfoBuilder, Extent2D, Framebuffer, FramebufferCreateInfoBuilder, ImageView,
     InstanceCreateInfoBuilder, PhysicalDevice, PhysicalDeviceFeaturesBuilder, PresentModeKHR,
     RenderPass, SurfaceCapabilitiesKHR, SurfaceFormatKHR, SurfaceKHR, API_VERSION_1_1,
+    KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, KHR_PORTABILITY_SUBSET_EXTENSION_NAME,
     KHR_SWAPCHAIN_EXTENSION_NAME,
 };
 use erupt::vk1_0::CommandPoolCreateFlags;
@@ -24,7 +25,13 @@ use winit::window::Window;
 #[cfg(debug_assertions)]
 use crate::vrt::utils::debug;
 
-const DEVICE_EXTENSIONS: &[*const c_char] = &[KHR_SWAPCHAIN_EXTENSION_NAME];
+const DEVICE_EXTENSIONS: &[*const c_char] = &[
+    KHR_SWAPCHAIN_EXTENSION_NAME,
+    KHR_PORTABILITY_SUBSET_EXTENSION_NAME,
+];
+
+pub const INSTANCE_EXTENSIONS: &[*const c_char] =
+    &[KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME];
 
 #[derive(Debug, Clone)]
 pub struct SwapchainSupportDetails {
@@ -144,6 +151,8 @@ impl VRTDevice {
         let mut extensions = extensions;
         #[cfg(debug_assertions)]
         extensions.extend(debug::EXTENSIONS);
+
+        extensions.extend(INSTANCE_EXTENSIONS);
 
         Ok(extensions)
     }
