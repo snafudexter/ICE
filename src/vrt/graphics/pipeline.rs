@@ -138,8 +138,8 @@ impl VRTPipeline {
         let pipeline_layout_info = PipelineLayoutCreateInfoBuilder::new();
 
         let mut dynamic_state_info = PipelineDynamicStateCreateInfoBuilder::new()
-            .dynamic_states(&[DynamicState::VIEWPORT , DynamicState::SCISSOR]);
-            dynamic_state_info.dynamic_state_count = 2;
+            .dynamic_states(&[DynamicState::VIEWPORT, DynamicState::SCISSOR]);
+        dynamic_state_info.dynamic_state_count = 2;
 
         PipelineConfigInfo {
             input_assembly,

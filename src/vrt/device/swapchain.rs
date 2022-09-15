@@ -73,7 +73,7 @@ impl Swapchain {
         })
     }
 
-    pub fn acquire_next_image(&self, index: usize) -> Result<u32, erupt::vk1_0::Result> {
+    pub fn acquire_next_image(&self) -> Result<u32, erupt::vk1_0::Result> {
         unsafe {
             self.device.wait_for_fences(
                 std::slice::from_ref(&self.sync.in_flight_fences[self.sync.current_frame]),
@@ -81,7 +81,8 @@ impl Swapchain {
                 u64::MAX,
             )
         }
-        .result()?;
+        .result()
+        .unwrap();
 
         unsafe {
             self.device.acquire_next_image_khr(
@@ -100,10 +101,12 @@ impl Swapchain {
         command_buffers: &CommandBuffer,
         image_index: &u32,
     ) -> VkResult<erupt::utils::VulkanResult<()>> {
-        if self.sync.images_in_flight[self.sync.current_frame] == None {
+        if self.sync.images_in_flight[*image_index as usize] != None {
             unsafe {
                 self.device.wait_for_fences(
-                    std::slice::from_ref(&self.sync.in_flight_fences[self.sync.current_frame]),
+                    std::slice::from_ref(
+                        &self.sync.images_in_flight[*image_index as usize].unwrap(),
+                    ),
                     true,
                     u64::MAX,
                 )
@@ -112,7 +115,7 @@ impl Swapchain {
             .unwrap();
         }
 
-        self.sync.images_in_flight[self.sync.current_frame as usize] =
+        self.sync.images_in_flight[*image_index as usize] =
             Some(self.sync.in_flight_fences[self.sync.current_frame]);
 
         let submit_info = SubmitInfoBuilder::new()

@@ -92,7 +92,7 @@ impl VRTRenderer {
             return Err(VkError::FrameAlreadyStarted);
         }
 
-        let image_index_result = self.swapchain.acquire_next_image(self.current_frame_index);
+        let image_index_result = self.swapchain.acquire_next_image();
 
         let image_index = match image_index_result {
             Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
@@ -137,7 +137,7 @@ impl VRTRenderer {
             .submit_command_buffer(
                 &self.device,
                 &command_buffer,
-                &u32::try_from(self.current_frame_index).unwrap(),
+                &u32::try_from(self.image_index).unwrap(),
             )
             .unwrap();
 
@@ -157,7 +157,7 @@ impl VRTRenderer {
     }
 
     fn get_current_command_buffer(&self) -> CommandBuffer {
-        self.command_buffers[self.image_index as usize]
+        self.command_buffers[self.current_frame_index as usize]
     }
 
     pub fn begin_swapchain_render_pass(&self, command_buffer: CommandBuffer) {
