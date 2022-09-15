@@ -21,7 +21,7 @@ use erupt::DeviceLoader;
 use erupt::{InstanceLoader, SmallVec};
 use std::sync::Arc;
 
-pub const MAX_FRAMES_IN_FLIGHT: usize = 2;
+pub const MAX_FRAMES_IN_FLIGHT: usize = 3;
 
 #[derive(Clone, Debug)]
 pub struct Swapchain {
@@ -100,10 +100,10 @@ impl Swapchain {
         command_buffers: &CommandBuffer,
         image_index: &u32,
     ) -> VkResult<erupt::utils::VulkanResult<()>> {
-        if self.sync.images_in_flight[*image_index as usize] == None {
+        if self.sync.images_in_flight[self.sync.current_frame] == None {
             unsafe {
                 self.device.wait_for_fences(
-                    std::slice::from_ref(&self.sync.in_flight_fences[*image_index as usize]),
+                    std::slice::from_ref(&self.sync.in_flight_fences[self.sync.current_frame]),
                     true,
                     u64::MAX,
                 )
@@ -112,7 +112,7 @@ impl Swapchain {
             .unwrap();
         }
 
-        self.sync.images_in_flight[*image_index as usize] =
+        self.sync.images_in_flight[self.sync.current_frame as usize] =
             Some(self.sync.in_flight_fences[self.sync.current_frame]);
 
         let submit_info = SubmitInfoBuilder::new()
@@ -132,7 +132,8 @@ impl Swapchain {
                 &self.sync.in_flight_fences[self.sync.current_frame],
             ))
         }
-        .result().unwrap();
+        .result()
+        .unwrap();
 
         unsafe {
             self.device.queue_submit(
@@ -141,14 +142,15 @@ impl Swapchain {
                 self.sync.in_flight_fences[self.sync.current_frame],
             )
         }
-        .result().unwrap();
+        .result()
+        .unwrap();
 
         let present_info = PresentInfoKHRBuilder::new()
             .wait_semaphores(std::slice::from_ref(
                 &self.sync.render_finished_semaphores[self.sync.current_frame],
             ))
             .swapchains(std::slice::from_ref(&self.swapchain))
-            .image_indices(std::slice::from_ref(&image_index));
+            .image_indices(std::slice::from_ref(image_index));
 
         let result = unsafe {
             self.device
@@ -171,14 +173,12 @@ impl Swapchain {
         let present_mode = Self::choose_swap_present_mode(swapchain_support.present_modes());
         let extent = Self::choose_swap_extent(extent, swapchain_support.capabilities());
 
-        let image_count = if swapchain_support.capabilities().max_image_count > 0 {
-            swapchain_support
-                .capabilities()
-                .max_image_count
-                .min(swapchain_support.capabilities().min_image_count + 1)
-        } else {
-            swapchain_support.capabilities().min_image_count + 1
-        };
+        let mut image_count = swapchain_support.capabilities().min_image_count + 1;
+        if swapchain_support.capabilities().max_image_count > 0
+            && image_count > swapchain_support.capabilities().max_image_count
+        {
+            image_count = swapchain_support.capabilities().max_image_count;
+        }
 
         let indices = [
             device.get_queue_family_indices().graphics_family(),

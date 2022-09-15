@@ -25,6 +25,7 @@ pub struct VRTRenderer {
     device: Arc<VRTDevice>,
     current_frame_index: usize,
     is_frame_started: bool,
+    image_index: u32,
 }
 
 impl VRTRenderer {
@@ -38,6 +39,7 @@ impl VRTRenderer {
             command_buffers,
             current_frame_index: 0,
             is_frame_started: false,
+            image_index: 0,
         })
     }
 
@@ -86,9 +88,8 @@ impl VRTRenderer {
     }
 
     pub fn begin_frame(&mut self, window: &VRTWindow) -> VkResult<CommandBuffer> {
-
         if self.is_frame_started == true {
-           return Err(VkError::FrameAlreadyStarted);
+            return Err(VkError::FrameAlreadyStarted);
         }
 
         let image_index_result = self.swapchain.acquire_next_image(self.current_frame_index);
@@ -99,11 +100,11 @@ impl VRTRenderer {
                 return Err(SwapChainExpired);
             }
             result => result,
-        }.unwrap();
-
-        self.current_frame_index = image_index as usize;
+        }
+        .unwrap();
 
         self.is_frame_started = true;
+        self.image_index = image_index;
 
         let begin_info = CommandBufferBeginInfoBuilder::new();
 
@@ -119,8 +120,11 @@ impl VRTRenderer {
         Ok(command_buffer)
     }
 
-    pub fn end_frame(&mut self, window: &mut VRTWindow) {
-        let command_buffer = self.get_current_command_buffer();
+    pub fn end_frame(&mut self, window: &mut VRTWindow, command_buffer: CommandBuffer) {
+        if !self.is_frame_started {
+            println!("cannot end frame if it's not started");
+            return;
+        }
         unsafe {
             self.device
                 .get_device_ptr()
@@ -149,11 +153,11 @@ impl VRTRenderer {
         }
 
         self.is_frame_started = false;
-        //self.current_frame_index = (self.current_frame_index + 1) % MAX_FRAMES_IN_FLIGHT;
+        self.current_frame_index = (self.current_frame_index + 1) % MAX_FRAMES_IN_FLIGHT;
     }
 
     fn get_current_command_buffer(&self) -> CommandBuffer {
-        self.command_buffers[self.current_frame_index as usize]
+        self.command_buffers[self.image_index as usize]
     }
 
     pub fn begin_swapchain_render_pass(&self, command_buffer: CommandBuffer) {

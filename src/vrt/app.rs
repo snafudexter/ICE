@@ -182,7 +182,7 @@ impl VRTApp {
         self.renderer.begin_swapchain_render_pass(command_buffer);
 
         self.renderer.end_swapchain_render_pass(command_buffer);
-        self.renderer.end_frame(&mut self.window);
+        self.renderer.end_frame(&mut self.window, command_buffer);
         Ok(())
     }
 
