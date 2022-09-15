@@ -21,7 +21,7 @@ use erupt::DeviceLoader;
 use erupt::{InstanceLoader, SmallVec};
 use std::sync::Arc;
 
-pub const MAX_FRAMES_IN_FLIGHT: usize = 3;
+pub const MAX_FRAMES_IN_FLIGHT: usize = 2;
 
 #[derive(Clone, Debug)]
 pub struct Swapchain {

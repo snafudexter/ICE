@@ -148,7 +148,6 @@ impl VRTRenderer {
             || present_result.raw == vk::Result::SUBOPTIMAL_KHR
             || window.was_window_resized()
         {
-            println!("problem {:?}", &window.was_window_resized());
             window.reset_resized_flag();
             self.recreate_swapchain(window).unwrap();
         } else {
@@ -177,7 +176,7 @@ impl VRTRenderer {
 
         let render_pass_info = RenderPassBeginInfoBuilder::new()
             .render_pass(self.swapchain.get_render_pass())
-            .framebuffer(self.swapchain.get_frame_buffer()[self.current_frame_index])
+            .framebuffer(self.swapchain.get_frame_buffer()[self.image_index as usize])
             .render_area(
                 *Rect2DBuilder::new()
                     .offset(*Offset2DBuilder::new().x(0).y(0))

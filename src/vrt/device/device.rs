@@ -145,7 +145,7 @@ impl VRTDevice {
     }
 
     fn required_extensions(window: &Window) -> VkResult<Vec<*const c_char>> {
-        let extensions = surface::enumerate_required_extensions(window).result()?;
+        let mut extensions = surface::enumerate_required_extensions(window).result()?;
 
         #[cfg(debug_assertions)]
         let mut extensions = extensions;
