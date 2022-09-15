@@ -149,7 +149,7 @@ impl VRTDevice {
         #[cfg(debug_assertions)]
         extensions.extend(debug::EXTENSIONS);
 
-        if !std::env::consts::OS.contains("linux") {
+        if std::env::consts::OS.contains("macos") {
             extensions.extend(INSTANCE_EXTENSIONS);
         }
 
@@ -212,7 +212,7 @@ impl VRTDevice {
                 .result()?;
 
         let device_extensions: &[*const c_char];
-        if !std::env::consts::OS.contains("linux") {
+        if std::env::consts::OS.contains("macos") {
             device_extensions = &[DEVICE_EXTENSIONS, KHR_PORTABILITY_SUBSET_EXTENSION_NAME];
         } else {
             device_extensions = &[DEVICE_EXTENSIONS];
@@ -251,7 +251,7 @@ impl VRTDevice {
         let device_features = PhysicalDeviceFeaturesBuilder::new();
 
         let device_extensions: &[*const c_char];
-        if !std::env::consts::OS.contains("linux") {
+        if std::env::consts::OS.contains("macos") {
             device_extensions = &[DEVICE_EXTENSIONS, KHR_PORTABILITY_SUBSET_EXTENSION_NAME];
         } else {
             device_extensions = &[DEVICE_EXTENSIONS];

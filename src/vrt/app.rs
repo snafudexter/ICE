@@ -20,6 +20,7 @@ pub struct VRTApp {
 
 impl VRTApp {
     pub fn new(event_loop: &EventLoop<()>, app_name: &str, width: u32, height: u32) -> Self {
+        println!("System OS {:?}", std::env::consts::OS);
         let window = VRTWindow::build_window(&event_loop, app_name, width, height)
             .expect("Cannot create window.");
 
