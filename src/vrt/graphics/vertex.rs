@@ -26,15 +26,24 @@ pub struct Vertex {
 }
 
 impl Vertex {
-    // pub const VERTICES: [Vertex; 3] = [
-    //     Vertex::new(const_vec2!([0.0, -0.5]), const_vec3!([1.0, 0.0, 0.0])),
-    //     Vertex::new(const_vec2!([0.5, 0.5]), const_vec3!([0.0, 1.0, 0.0])),
-    //     Vertex::new(const_vec2!([-0.5, 0.5]), const_vec3!([0.0, 0.0, 1.0])),
-    // ];
+    pub const VERTICES: [Vertex; 3] = [
+        Vertex::new(
+            Vec2::from_array([0.0, -0.5]),
+            Vec3::from_array([1.0, 0.0, 0.0]),
+        ),
+        Vertex::new(
+            Vec2::from_array([0.5, 0.5]),
+            Vec3::from_array([0.0, 1.0, 0.0]),
+        ),
+        Vertex::new(
+            Vec2::from_array([-0.5, 0.5]),
+            Vec3::from_array([0.0, 0.0, 1.0]),
+        ),
+    ];
 
-    // pub const fn new(position: Vec2, color: Vec3) -> Self {
-    //     Self { position, color }
-    // }
+    pub const fn new(position: Vec2, color: Vec3) -> Self {
+        Self { position, color }
+    }
 
     pub fn binding_description() -> VertexInputBindingDescriptionBuilder<'static> {
         VertexInputBindingDescriptionBuilder::new()

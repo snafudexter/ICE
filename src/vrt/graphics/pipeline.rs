@@ -12,24 +12,25 @@ use erupt::vk1_0::{
     PipelineLayoutCreateInfoBuilder, PipelineMultisampleStateCreateInfoBuilder,
     PipelineRasterizationStateCreateInfoBuilder, PipelineShaderStageCreateInfoBuilder,
     PipelineVertexInputStateCreateInfoBuilder, PipelineViewportStateCreateInfoBuilder, PolygonMode,
-    PrimitiveTopology, Rect2DBuilder, RenderPass, SampleCountFlagBits, ShaderModule,
-    ShaderModuleCreateInfoBuilder, ShaderStageFlagBits, ViewportBuilder,
+    PrimitiveTopology, RenderPass, SampleCountFlagBits, ShaderModule,
+    ShaderModuleCreateInfoBuilder, ShaderStageFlagBits, VertexInputAttributeDescriptionBuilder,
+    VertexInputBindingDescriptionBuilder,
 };
 
 use crate::vrt::device::device::VRTDevice;
 use crate::vrt::utils::result::VkResult;
 
+use super::vertex::Vertex;
+
 pub struct PipelineConfigInfo<'a> {
     input_assembly: PipelineInputAssemblyStateCreateInfoBuilder<'a>,
-    vertex_input_info: PipelineVertexInputStateCreateInfoBuilder<'a>,
     rasterizer: PipelineRasterizationStateCreateInfoBuilder<'a>,
     multisampling: PipelineMultisampleStateCreateInfoBuilder<'a>,
-    color_blending: PipelineColorBlendStateCreateInfoBuilder<'a>,
     pipeline_layout_info: PipelineLayoutCreateInfoBuilder<'a>,
     dynamic_state_info: PipelineDynamicStateCreateInfoBuilder<'a>,
     color_blend_attachment: PipelineColorBlendAttachmentStateBuilder<'a>,
-    viewport: ViewportBuilder<'a>,
-    scissor: Rect2DBuilder<'a>,
+    binding_description: VertexInputBindingDescriptionBuilder<'a>,
+    attribute_descriptions: Vec<VertexInputAttributeDescriptionBuilder<'a>>,
 }
 
 pub struct VRTPipeline {
@@ -42,7 +43,7 @@ impl VRTPipeline {
         device: Arc<VRTDevice>,
         vertex_shader_path: &str,
         fragment_shader_path: &str,
-        configInfo: &mut PipelineConfigInfo,
+        config_info: &mut PipelineConfigInfo,
         render_pass: RenderPass,
     ) -> Self {
         let vertex_shader_module =
@@ -68,31 +69,35 @@ impl VRTPipeline {
         let pipeline_layout = unsafe {
             device
                 .get_device_ptr()
-                .create_pipeline_layout(&configInfo.pipeline_layout_info, None)
+                .create_pipeline_layout(&config_info.pipeline_layout_info, None)
         };
 
         let color_blending = PipelineColorBlendStateCreateInfoBuilder::new()
             .logic_op_enable(false)
             .logic_op(LogicOp::COPY)
-            .attachments(std::slice::from_ref(&configInfo.color_blend_attachment))
+            .attachments(std::slice::from_ref(&config_info.color_blend_attachment))
             .blend_constants([0.0, 0.0, 0.0, 0.0]);
 
         let viewport_state = PipelineViewportStateCreateInfoBuilder::new()
-            // .viewports(std::slice::from_ref(&configInfo.viewport))
-            // .scissors(std::slice::from_ref(&configInfo.scissor))
+            // .viewports(std::slice::from_ref(&config_info.viewport))
+            // .scissors(std::slice::from_ref(&config_info.scissor))
             .viewport_count(1)
             .scissor_count(1);
 
+        let vertex_input_info = PipelineVertexInputStateCreateInfoBuilder::new()
+            .vertex_binding_descriptions(std::slice::from_ref(&config_info.binding_description))
+            .vertex_attribute_descriptions(&config_info.attribute_descriptions);
+
         let pipeline_info = GraphicsPipelineCreateInfoBuilder::new()
             .stages(&_shader_stages)
-            .vertex_input_state(&configInfo.vertex_input_info)
-            .input_assembly_state(&configInfo.input_assembly)
+            .vertex_input_state(&vertex_input_info)
+            .input_assembly_state(&config_info.input_assembly)
             .viewport_state(&viewport_state)
-            .rasterization_state(&configInfo.rasterizer)
-            .multisample_state(&configInfo.multisampling)
+            .rasterization_state(&config_info.rasterizer)
+            .multisample_state(&config_info.multisampling)
             .color_blend_state(&color_blending)
             .layout(pipeline_layout.unwrap())
-            .dynamic_state(&configInfo.dynamic_state_info)
+            .dynamic_state(&config_info.dynamic_state_info)
             .render_pass(render_pass)
             .subpass(0)
             .base_pipeline_index(-1);
@@ -146,14 +151,9 @@ impl VRTPipeline {
     }
 
     pub fn default_pipeline_config_info() -> PipelineConfigInfo<'static> {
-        let viewport = ViewportBuilder::new();
-        let scissor = Rect2DBuilder::new();
-
         let input_assembly = PipelineInputAssemblyStateCreateInfoBuilder::new()
             .topology(PrimitiveTopology::TRIANGLE_LIST)
             .primitive_restart_enable(false);
-
-        let vertex_input_info = PipelineVertexInputStateCreateInfoBuilder::new();
 
         let rasterizer = PipelineRasterizationStateCreateInfoBuilder::new()
             .depth_clamp_enable(false)
@@ -186,29 +186,24 @@ impl VRTPipeline {
             .dst_alpha_blend_factor(BlendFactor::ZERO)
             .alpha_blend_op(BlendOp::ADD);
 
-        let color_blending = PipelineColorBlendStateCreateInfoBuilder::new()
-            .logic_op_enable(false)
-            .logic_op(LogicOp::COPY)
-            //.attachments(std::slice::from_ref(&color_blend_attachment))
-            .blend_constants([0.0, 0.0, 0.0, 0.0]);
-
         let pipeline_layout_info = PipelineLayoutCreateInfoBuilder::new();
 
         let dynamic_state_info = PipelineDynamicStateCreateInfoBuilder::new()
             .dynamic_states(&[DynamicState::VIEWPORT, DynamicState::SCISSOR])
             .flags(PipelineDynamicStateCreateFlags::empty());
 
+        let binding_description = Vertex::binding_description();
+        let attribute_descriptions = Vertex::attribute_descriptions();
+
         PipelineConfigInfo {
             input_assembly,
-            vertex_input_info,
             rasterizer,
             multisampling,
-            color_blending,
             pipeline_layout_info,
             color_blend_attachment,
             dynamic_state_info,
-            viewport,
-            scissor,
+            binding_description,
+            attribute_descriptions: Vec::from(attribute_descriptions),
         }
     }
 

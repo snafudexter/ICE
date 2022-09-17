@@ -2,7 +2,7 @@ use std::{ops::Deref, sync::Arc};
 
 use erupt::vk1_0::{CommandBuffer, RenderPass};
 
-use super::pipeline::VRTPipeline;
+use super::{model::Model, pipeline::VRTPipeline};
 use crate::vrt::device::device::VRTDevice;
 
 const VERTEX_SHADER: &str = "./assets/shaders/vert.spirv";
@@ -28,12 +28,9 @@ impl TriangleRenderSystem {
         Self { pipeline, device }
     }
 
-    pub fn render(&self, command_buffer: CommandBuffer) {
+    pub fn render(&self, device: Arc<VRTDevice>, command_buffer: CommandBuffer, model: &Model) {
         self.pipeline.bind(command_buffer);
-        unsafe {
-            self.device
-                .get_device_ptr()
-                .cmd_draw(command_buffer, 3, 1, 0, 0);
-        }
+        model.bind(device.clone(), command_buffer);
+        model.draw(device, command_buffer)
     }
 }

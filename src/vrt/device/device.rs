@@ -12,7 +12,7 @@ use erupt::vk::{
     KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, KHR_PORTABILITY_SUBSET_EXTENSION_NAME,
     KHR_SWAPCHAIN_EXTENSION_NAME,
 };
-use erupt::vk1_0::CommandPoolCreateFlags;
+use erupt::vk1_0::{CommandPoolCreateFlags, PhysicalDeviceProperties};
 use erupt::SmallVec;
 use erupt::{DeviceLoader, EntryLoader, InstanceLoader};
 use std::collections::BTreeSet;
@@ -70,6 +70,11 @@ impl VRTDevice {
 
         let command_pool = Self::create_command_pool(&queue_family_indices, &device)?;
 
+        // let properties: PhysicalDeviceProperties;
+        // unsafe {
+        //     properties = instance.get_physical_device_properties(physical_device);
+        // }
+
         Ok(Self {
             _queues: queues,
             device,
@@ -87,6 +92,10 @@ impl VRTDevice {
 
     pub fn get_swapchain_support(&self) -> VkResult<SwapchainSupportDetails> {
         SwapchainSupportDetails::new(&self.instance, self.surface, self._physical_device)
+    }
+
+    pub fn get_physical_device(&self) -> PhysicalDevice {
+        self._physical_device
     }
 
     pub fn get_device_ptr(&self) -> Arc<DeviceLoader> {
@@ -107,6 +116,10 @@ impl VRTDevice {
 
     pub fn get_surface(&self) -> SurfaceKHR {
         self.surface
+    }
+
+    pub fn get_instance(&self) -> &InstanceLoader {
+        &self.instance
     }
 
     fn create_instance(window: &Window, entry: &EntryLoader) -> VkResult<Arc<InstanceLoader>> {

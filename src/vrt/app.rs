@@ -7,6 +7,7 @@ use winit::event_loop::{ControlFlow, EventLoop};
 
 use super::device::device::VRTDevice;
 
+use super::graphics::model::Model;
 use super::graphics::renderer::VRTRenderer;
 use super::graphics::triangle_render_system::TriangleRenderSystem;
 use super::utils::result::VkResult;
@@ -16,6 +17,7 @@ pub struct VRTApp {
     window: VRTWindow,
     renderer: VRTRenderer,
     triangle_render_system: TriangleRenderSystem,
+    model: Model,
 }
 
 impl VRTApp {
@@ -31,11 +33,14 @@ impl VRTApp {
         let triangle_render_system =
             TriangleRenderSystem::new(device.clone(), renderer.get_swapchain_render_pass());
 
+        let model = Model::new(device.get_instance(), device.clone());
+
         Self {
             device,
             window,
             renderer,
             triangle_render_system,
+            model,
         }
     }
 
@@ -188,7 +193,8 @@ impl VRTApp {
 
         self.renderer.begin_swapchain_render_pass(command_buffer);
 
-        self.triangle_render_system.render(command_buffer);
+        self.triangle_render_system
+            .render(self.device.clone(), command_buffer, &self.model);
 
         self.renderer.end_swapchain_render_pass(command_buffer);
         self.renderer.end_frame(&mut self.window, command_buffer);
