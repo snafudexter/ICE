@@ -7,13 +7,13 @@ use erupt::{
         CommandBufferAllocateInfoBuilder, CommandBufferBeginInfoBuilder, CommandBufferLevel,
         CommandBufferUsageFlags, CommandPool, DeviceMemory, DeviceSize, Fence,
         MemoryAllocateInfoBuilder, MemoryMapFlags, MemoryPropertyFlags, PhysicalDevice, Queue,
-        SharingMode, SubmitInfoBuilder,
+        SharingMode, SubmitInfoBuilder, WHOLE_SIZE,
     },
     DeviceLoader, InstanceLoader,
 };
 
 use crate::vrt::{
-    device::device::VRTDevice,
+    device::{buffer::VRTBuffer, device::VRTDevice},
     utils::result::{VkError, VkResult},
 };
 
@@ -21,18 +21,15 @@ use super::vertex::Vertex;
 
 pub struct Model {
     device: Arc<VRTDevice>,
-    vertex_buffer: Buffer,
-    vertex_buffer_memory: DeviceMemory,
+    vertex_buffer: VRTBuffer,
 }
 
 impl Model {
     pub fn new(instance: &InstanceLoader, device: Arc<VRTDevice>) -> Self {
-        let (vertex_buffer, vertex_buffer_memory) =
-            Self::create_vertex_buffer(instance, device.clone()).unwrap();
+        let vertex_buffer = Self::create_vertex_buffer(instance, device.clone()).unwrap();
         Self {
             device,
             vertex_buffer,
-            vertex_buffer_memory,
         }
     }
 
@@ -41,7 +38,7 @@ impl Model {
             device.get_device_ptr().cmd_bind_vertex_buffers(
                 command_buffer,
                 0,
-                std::slice::from_ref(&self.vertex_buffer),
+                std::slice::from_ref(&self.vertex_buffer.get_buffer()),
                 &[0],
             );
         }
@@ -62,61 +59,83 @@ impl Model {
     fn create_vertex_buffer(
         instance: &InstanceLoader,
         device: Arc<VRTDevice>,
-    ) -> VkResult<(Buffer, DeviceMemory)> {
+    ) -> VkResult<VRTBuffer> {
         let buffer_size = (mem::size_of::<Vertex>() * Vertex::VERTICES.len()) as DeviceSize;
 
-        let (staging_buffer, staging_buffer_memory) = Self::create_buffer(
-            instance,
-            device.get_physical_device(),
-            &device.get_device_ptr(),
-            buffer_size,
+        let staging_buffer = VRTBuffer::new(
+            device.clone(),
+            mem::size_of::<Vertex>().try_into().unwrap(),
+            Vertex::VERTICES.len().try_into().unwrap(),
             BufferUsageFlags::TRANSFER_SRC,
             MemoryPropertyFlags::HOST_VISIBLE | MemoryPropertyFlags::HOST_COHERENT,
-        )?;
-        unsafe {
-            let memory = device
-                .get_device_ptr()
-                .map_memory(
-                    staging_buffer_memory,
-                    0,
-                    buffer_size,
-                    MemoryMapFlags::empty(),
-                )
-                .result()?;
-            copy_nonoverlapping(
-                Vertex::VERTICES.as_ptr(),
-                memory.cast(),
-                Vertex::VERTICES.len(),
-            );
-            device.get_device_ptr().unmap_memory(staging_buffer_memory);
-        }
+            None,
+        );
 
-        let (vertex_buffer, vertex_buffer_memory) = Self::create_buffer(
-            instance,
-            device.get_physical_device(),
-            &device.get_device_ptr(),
-            buffer_size,
+        // let (staging_buffer, staging_buffer_memory) = Self::create_buffer(
+        //     instance,
+        //     device.get_physical_device(),
+        //     &device.get_device_ptr(),
+        //     buffer_size,
+        //     BufferUsageFlags::TRANSFER_SRC,
+        //     MemoryPropertyFlags::HOST_VISIBLE | MemoryPropertyFlags::HOST_COHERENT,
+        // )?;
+
+        let mapped = staging_buffer.map(buffer_size, 0);
+
+        staging_buffer.write_to_buffer(
+            Vertex::VERTICES.as_ptr(),
+            mapped,
+            Vertex::VERTICES.len() as DeviceSize,
+            0,
+        );
+        staging_buffer.unmap();
+
+        // unsafe {
+        //     let memory = device
+        //         .get_device_ptr()
+        //         .map_memory(
+        //             staging_buffer_memory,
+        //             0,
+        //             buffer_size,
+        //             MemoryMapFlags::empty(),
+        //         )
+        //         .result()?;
+        //     copy_nonoverlapping(
+        //         Vertex::VERTICES.as_ptr(),
+        //         memory.cast(),
+        //         Vertex::VERTICES.len(),
+        //     );
+        //     device.get_device_ptr().unmap_memory(staging_buffer_memory);
+        // }
+
+        let vertex_buffer = VRTBuffer::new(
+            device.clone(),
+            mem::size_of::<Vertex>().try_into().unwrap(),
+            Vertex::VERTICES.len().try_into().unwrap(),
             BufferUsageFlags::TRANSFER_DST | BufferUsageFlags::VERTEX_BUFFER,
             MemoryPropertyFlags::DEVICE_LOCAL,
-        )?;
+            None,
+        );
+
+        // let (vertex_buffer, vertex_buffer_memory) = Self::create_buffer(
+        //     instance,
+        //     device.get_physical_device(),
+        //     &device.get_device_ptr(),
+        //     buffer_size,
+        //     BufferUsageFlags::TRANSFER_DST | BufferUsageFlags::VERTEX_BUFFER,
+        //     MemoryPropertyFlags::DEVICE_LOCAL,
+        // )?;
 
         Self::copy_buffer(
             &device.get_device_ptr(),
             device.get_queues().graphics,
             device.get_command_pool(),
-            staging_buffer,
-            vertex_buffer,
+            staging_buffer.get_buffer(),
+            vertex_buffer.get_buffer(),
             buffer_size,
         )?;
 
-        unsafe { device.get_device_ptr().destroy_buffer(staging_buffer, None) };
-        unsafe {
-            device
-                .get_device_ptr()
-                .free_memory(staging_buffer_memory, None)
-        };
-
-        Ok((vertex_buffer, vertex_buffer_memory))
+        Ok(vertex_buffer)
     }
 
     fn find_memory_type(
@@ -212,18 +231,5 @@ impl Model {
         unsafe { device.free_command_buffers(command_pool, std::slice::from_ref(&command_buffer)) };
 
         Ok(())
-    }
-}
-
-impl Drop for Model {
-    fn drop(&mut self) {
-        unsafe {
-            self.device
-                .get_device_ptr()
-                .destroy_buffer(self.vertex_buffer, None);
-            self.device
-                .get_device_ptr()
-                .free_memory(self.vertex_buffer_memory, None);
-        }
     }
 }

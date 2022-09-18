@@ -37,7 +37,7 @@ impl Vertex {
         ),
         Vertex::new(
             Vec2::from_array([-0.5, 0.5]),
-            Vec3::from_array([0.0, 0.0, 1.0]),
+            Vec3::from_array([0.0, 1.0, 1.0]),
         ),
     ];
 

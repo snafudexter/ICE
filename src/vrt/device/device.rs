@@ -12,7 +12,11 @@ use erupt::vk::{
     KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, KHR_PORTABILITY_SUBSET_EXTENSION_NAME,
     KHR_SWAPCHAIN_EXTENSION_NAME,
 };
-use erupt::vk1_0::{CommandPoolCreateFlags, PhysicalDeviceProperties};
+use erupt::vk1_0::{
+    Buffer, BufferCreateInfoBuilder, BufferUsageFlags, CommandPoolCreateFlags, DeviceMemory,
+    DeviceSize, MemoryAllocateInfoBuilder, MemoryPropertyFlags, PhysicalDeviceProperties,
+    SharingMode,
+};
 use erupt::SmallVec;
 use erupt::{DeviceLoader, EntryLoader, InstanceLoader};
 use std::collections::BTreeSet;
@@ -70,10 +74,10 @@ impl VRTDevice {
 
         let command_pool = Self::create_command_pool(&queue_family_indices, &device)?;
 
-        // let properties: PhysicalDeviceProperties;
-        // unsafe {
-        //     properties = instance.get_physical_device_properties(physical_device);
-        // }
+        let properties: PhysicalDeviceProperties;
+        unsafe {
+            properties = instance.get_physical_device_properties(physical_device);
+        }
 
         Ok(Self {
             _queues: queues,
@@ -88,6 +92,55 @@ impl VRTDevice {
             swapchain_support,
             command_pool,
         })
+    }
+
+    pub fn create_buffer(
+        &self,
+        size: DeviceSize,
+        usage: BufferUsageFlags,
+        properties: MemoryPropertyFlags,
+    ) -> VkResult<(Buffer, DeviceMemory)> {
+        let buffer_info = BufferCreateInfoBuilder::new()
+            .size(size)
+            .usage(usage)
+            .sharing_mode(SharingMode::EXCLUSIVE);
+
+        let buffer = unsafe { self.device.create_buffer(&buffer_info, None) }.result()?;
+        let memory_requirements = unsafe { self.device.get_buffer_memory_requirements(buffer) };
+
+        let alloc_info = MemoryAllocateInfoBuilder::new()
+            .allocation_size(memory_requirements.size)
+            .memory_type_index(Self::find_memory_type(
+                &self.instance.clone(),
+                self._physical_device,
+                memory_requirements.memory_type_bits,
+                properties,
+            )?);
+
+        let buffer_memory = unsafe { self.device.allocate_memory(&alloc_info, None) }.result()?;
+        unsafe { self.device.bind_buffer_memory(buffer, buffer_memory, 0) }.result()?;
+
+        Ok((buffer, buffer_memory))
+    }
+
+    fn find_memory_type(
+        instance: &InstanceLoader,
+        physical_device: PhysicalDevice,
+        type_filter: u32,
+        properties: MemoryPropertyFlags,
+    ) -> VkResult<u32> {
+        let memory_properties =
+            unsafe { instance.get_physical_device_memory_properties(physical_device) };
+
+        (0..memory_properties.memory_type_count)
+            .into_iter()
+            .find(|&i| {
+                (type_filter & (1 << i)) != 0
+                    && memory_properties.memory_types[i as usize]
+                        .property_flags
+                        .contains(properties)
+            })
+            .ok_or(VkError::NoSuitableMemoryType)
     }
 
     pub fn get_swapchain_support(&self) -> VkResult<SwapchainSupportDetails> {
