@@ -43,12 +43,12 @@ impl VRTDescriptorSetLayoutBuilder<'_> {
     }
 
     pub fn add_binding(
-        mut self,
+        &mut self,
         binding: u32,
         descriptor_type: DescriptorType,
         stage_flags: ShaderStageFlags,
         count: Option<u32>,
-    ) -> VRTDescriptorSetLayoutBuilder<'static> {
+    ) -> &VRTDescriptorSetLayoutBuilder {
         let layout_binding = DescriptorSetLayoutBindingBuilder::new()
             .binding(binding)
             .descriptor_type(descriptor_type)
