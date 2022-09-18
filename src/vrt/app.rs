@@ -1,10 +1,13 @@
+use crate::vrt::device::descriptors::layout::VRTDescriptorSetLayoutBuilder;
 use crate::VRTWindow;
 use std::process;
 use std::sync::Arc;
 
+use erupt::vk1_0::{DescriptorType, ShaderStageFlags};
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
+use super::device::descriptors::layout::VRTDescriptorSetLayout;
 use super::device::device::VRTDevice;
 
 use super::graphics::model::Model;
@@ -18,6 +21,7 @@ pub struct VRTApp {
     renderer: VRTRenderer,
     triangle_render_system: TriangleRenderSystem,
     model: Model,
+    global_descriptor_set_layout: VRTDescriptorSetLayout,
 }
 
 impl VRTApp {
@@ -35,12 +39,22 @@ impl VRTApp {
 
         let model = Model::new(device.get_instance(), device.clone());
 
+        let global_descriptor_set_layout = VRTDescriptorSetLayoutBuilder::new(device.clone())
+            .add_binding(
+                0,
+                DescriptorType::UNIFORM_BUFFER,
+                ShaderStageFlags::ALL_GRAPHICS,
+                None,
+            )
+            .build();
+
         Self {
             device,
             window,
             renderer,
             triangle_render_system,
             model,
+            global_descriptor_set_layout,
         }
     }
 
