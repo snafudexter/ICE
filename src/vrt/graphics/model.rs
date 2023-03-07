@@ -80,7 +80,7 @@ impl Model {
         //     MemoryPropertyFlags::HOST_VISIBLE | MemoryPropertyFlags::HOST_COHERENT,
         // )?;
 
-        let mapped = staging_buffer.map(buffer_size, 0);
+        let mapped = staging_buffer.map(Some(buffer_size), Some(0));
 
         staging_buffer.write_to_buffer(
             Vertex::VERTICES.as_ptr(),
@@ -90,24 +90,6 @@ impl Model {
         );
         staging_buffer.unmap();
 
-        // unsafe {
-        //     let memory = device
-        //         .get_device_ptr()
-        //         .map_memory(
-        //             staging_buffer_memory,
-        //             0,
-        //             buffer_size,
-        //             MemoryMapFlags::empty(),
-        //         )
-        //         .result()?;
-        //     copy_nonoverlapping(
-        //         Vertex::VERTICES.as_ptr(),
-        //         memory.cast(),
-        //         Vertex::VERTICES.len(),
-        //     );
-        //     device.get_device_ptr().unmap_memory(staging_buffer_memory);
-        // }
-
         let vertex_buffer = VRTBuffer::new(
             device.clone(),
             mem::size_of::<Vertex>().try_into().unwrap(),
@@ -116,15 +98,6 @@ impl Model {
             MemoryPropertyFlags::DEVICE_LOCAL,
             None,
         );
-
-        // let (vertex_buffer, vertex_buffer_memory) = Self::create_buffer(
-        //     instance,
-        //     device.get_physical_device(),
-        //     &device.get_device_ptr(),
-        //     buffer_size,
-        //     BufferUsageFlags::TRANSFER_DST | BufferUsageFlags::VERTEX_BUFFER,
-        //     MemoryPropertyFlags::DEVICE_LOCAL,
-        // )?;
 
         Self::copy_buffer(
             &device.get_device_ptr(),

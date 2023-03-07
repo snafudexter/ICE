@@ -9,7 +9,7 @@ use erupt::vk1_0::{
     PipelineCache, PipelineColorBlendAttachmentStateBuilder,
     PipelineColorBlendStateCreateInfoBuilder, PipelineDynamicStateCreateFlags,
     PipelineDynamicStateCreateInfoBuilder, PipelineInputAssemblyStateCreateInfoBuilder,
-    PipelineLayoutCreateInfoBuilder, PipelineMultisampleStateCreateInfoBuilder,
+    PipelineLayout, PipelineMultisampleStateCreateInfoBuilder,
     PipelineRasterizationStateCreateInfoBuilder, PipelineShaderStageCreateInfoBuilder,
     PipelineVertexInputStateCreateInfoBuilder, PipelineViewportStateCreateInfoBuilder, PolygonMode,
     PrimitiveTopology, RenderPass, SampleCountFlagBits, ShaderModule,
@@ -26,7 +26,7 @@ pub struct PipelineConfigInfo<'a> {
     input_assembly: PipelineInputAssemblyStateCreateInfoBuilder<'a>,
     rasterizer: PipelineRasterizationStateCreateInfoBuilder<'a>,
     multisampling: PipelineMultisampleStateCreateInfoBuilder<'a>,
-    pipeline_layout_info: PipelineLayoutCreateInfoBuilder<'a>,
+    pub pipeline_layout: PipelineLayout,
     dynamic_state_info: PipelineDynamicStateCreateInfoBuilder<'a>,
     color_blend_attachment: PipelineColorBlendAttachmentStateBuilder<'a>,
     binding_description: VertexInputBindingDescriptionBuilder<'a>,
@@ -66,12 +66,6 @@ impl VRTPipeline {
 
         let _shader_stages = [vertex_shader_stage_info, fragment_shader_stage_info];
 
-        let pipeline_layout = unsafe {
-            device
-                .get_device_ptr()
-                .create_pipeline_layout(&config_info.pipeline_layout_info, None)
-        };
-
         let color_blending = PipelineColorBlendStateCreateInfoBuilder::new()
             .logic_op_enable(false)
             .logic_op(LogicOp::COPY)
@@ -96,7 +90,7 @@ impl VRTPipeline {
             .rasterization_state(&config_info.rasterizer)
             .multisample_state(&config_info.multisampling)
             .color_blend_state(&color_blending)
-            .layout(pipeline_layout.unwrap())
+            .layout(config_info.pipeline_layout)
             .dynamic_state(&config_info.dynamic_state_info)
             .render_pass(render_pass)
             .subpass(0)
@@ -186,8 +180,6 @@ impl VRTPipeline {
             .dst_alpha_blend_factor(BlendFactor::ZERO)
             .alpha_blend_op(BlendOp::ADD);
 
-        let pipeline_layout_info = PipelineLayoutCreateInfoBuilder::new();
-
         let dynamic_state_info = PipelineDynamicStateCreateInfoBuilder::new()
             .dynamic_states(&[DynamicState::VIEWPORT, DynamicState::SCISSOR])
             .flags(PipelineDynamicStateCreateFlags::empty());
@@ -199,7 +191,7 @@ impl VRTPipeline {
             input_assembly,
             rasterizer,
             multisampling,
-            pipeline_layout_info,
+            pipeline_layout: PipelineLayout::null(),
             color_blend_attachment,
             dynamic_state_info,
             binding_description,

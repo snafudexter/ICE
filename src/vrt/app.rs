@@ -1,12 +1,25 @@
+use crate::vrt::device::buffer::VRTBuffer;
+use crate::vrt::device::descriptors::descriptor_pool::{
+    VRTDescriptorPoolBuilder, VRTDescriptorWriter,
+};
 use crate::vrt::device::descriptors::layout::VRTDescriptorSetLayoutBuilder;
+use crate::vrt::device::swapchain::{Swapchain, MAX_FRAMES_IN_FLIGHT};
 use crate::VRTWindow;
 use std::process;
+use std::rc::Rc;
 use std::sync::Arc;
 
-use erupt::vk1_0::{DescriptorType, ShaderStageFlags};
+use erupt::SmallVec;
+use glam::Mat4;
+
+use erupt::vk1_0::{
+    BufferUsageFlags, DescriptorSet, DescriptorType, DeviceSize, MemoryPropertyFlags,
+    ShaderStageFlags,
+};
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
+use super::device::descriptors::descriptor_pool::VRTDescriptorPool;
 use super::device::descriptors::layout::VRTDescriptorSetLayout;
 use super::device::device::VRTDevice;
 
@@ -21,7 +34,16 @@ pub struct VRTApp {
     renderer: VRTRenderer,
     triangle_render_system: TriangleRenderSystem,
     model: Model,
-    global_descriptor_set_layout: VRTDescriptorSetLayout,
+    //global_pool: VRTDescriptorPool,
+    //global_descriptor_set_layout: VRTDescriptorSetLayout,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, Default)]
+pub struct GlobalUBO {
+    model: Mat4,
+    view: Mat4,
+    projection: Mat4,
 }
 
 impl VRTApp {
@@ -34,10 +56,31 @@ impl VRTApp {
 
         let renderer = VRTRenderer::new(device.clone(), &window).unwrap();
 
-        let triangle_render_system =
-            TriangleRenderSystem::new(device.clone(), renderer.get_swapchain_render_pass());
-
         let model = Model::new(device.get_instance(), device.clone());
+
+        let mut ubo_buffers: Vec<VRTBuffer> = vec![];
+        for i in 0..MAX_FRAMES_IN_FLIGHT {
+            let ubo_buffer = VRTBuffer::new(
+                device.clone(),
+                std::mem::size_of::<GlobalUBO>() as DeviceSize,
+                1,
+                BufferUsageFlags::UNIFORM_BUFFER,
+                MemoryPropertyFlags::HOST_VISIBLE,
+                None,
+            );
+            ubo_buffer.map(None, None);
+            ubo_buffers.push(ubo_buffer);
+        }
+
+        let global_pool = std::rc::Rc::new(
+            VRTDescriptorPoolBuilder::new(device.clone())
+                .set_max_sets(u32::try_from(MAX_FRAMES_IN_FLIGHT).unwrap())
+                .add_pool_size(
+                    DescriptorType::UNIFORM_BUFFER,
+                    u32::try_from(MAX_FRAMES_IN_FLIGHT).unwrap(),
+                )
+                .build(),
+        );
 
         let global_descriptor_set_layout = VRTDescriptorSetLayoutBuilder::new(device.clone())
             .add_binding(
@@ -48,13 +91,33 @@ impl VRTApp {
             )
             .build();
 
+        let global_descriptor_set_layout = Rc::new(global_descriptor_set_layout);
+
+        let mut global_descriptor_sets: SmallVec<DescriptorSet>;
+
+        for i in 0..MAX_FRAMES_IN_FLIGHT {
+            let buffer_info =
+                ubo_buffers[i].get_buffer_info(std::mem::size_of::<GlobalUBO>() as DeviceSize);
+            global_descriptor_sets =
+                VRTDescriptorWriter::new(global_descriptor_set_layout.clone(), global_pool.clone())
+                    .write_buffer(0, &buffer_info)
+                    .build()
+                    .unwrap();
+        }
+
+        let triangle_render_system = TriangleRenderSystem::new(
+            device.clone(),
+            renderer.get_swapchain_render_pass(),
+            global_descriptor_set_layout.get_descriptor_set_layout(),
+        );
+
         Self {
             device,
             window,
             renderer,
             triangle_render_system,
             model,
-            global_descriptor_set_layout,
+            //global_descriptor_set_layout,
         }
     }
 

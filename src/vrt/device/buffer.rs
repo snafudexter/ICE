@@ -1,8 +1,8 @@
 use std::{ffi::c_void, os::raw::c_int, ptr::copy_nonoverlapping, sync::Arc};
 
 use erupt::vk1_0::{
-    Buffer, BufferUsageFlags, DeviceMemory, DeviceSize, MemoryMapFlags, MemoryPropertyFlags,
-    WHOLE_SIZE,
+    Buffer, BufferUsageFlags, DescriptorBufferInfoBuilder, DeviceMemory, DeviceSize,
+    MemoryMapFlags, MemoryPropertyFlags, WHOLE_SIZE,
 };
 
 use crate::vrt::graphics::vertex::Vertex;
@@ -50,11 +50,16 @@ impl VRTBuffer {
         }
     }
 
-    pub fn map(&self, size: DeviceSize, offset: DeviceSize) -> *mut c_void {
+    pub fn map(&self, size: Option<DeviceSize>, offset: Option<DeviceSize>) -> *mut c_void {
         unsafe {
             self.device
                 .get_device_ptr()
-                .map_memory(self.memory, offset, size, MemoryMapFlags::empty())
+                .map_memory(
+                    self.memory,
+                    offset.unwrap_or(0),
+                    size.unwrap_or(WHOLE_SIZE),
+                    MemoryMapFlags::empty(),
+                )
                 .result()
                 .unwrap()
         }
@@ -93,6 +98,13 @@ impl VRTBuffer {
 
     pub fn get_buffer(&self) -> Buffer {
         self.buffer
+    }
+
+    pub fn get_buffer_info(&self, range: DeviceSize) -> DescriptorBufferInfoBuilder {
+        DescriptorBufferInfoBuilder::new()
+            .buffer(self.buffer)
+            .offset(0)
+            .range(range)
     }
 }
 

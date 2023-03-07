@@ -409,31 +409,6 @@ impl Swapchain {
     pub fn get_swapchain_khr(&self) -> SwapchainKHR {
         self.swapchain
     }
-
-    // pub fn destroy_swapchain(&mut self) {
-    //     unsafe {
-    //         for image_view in &self.image_views {
-    //             self.device.destroy_image_view(*image_view, None);
-    //         }
-
-    //         self.device.destroy_swapchain_khr(self.swapchain, None);
-
-    //         for framebuffer in &self.framebuffers {
-    //             self.device.destroy_framebuffer(*framebuffer, None);
-    //         }
-
-    //         self.device.destroy_render_pass(self.render_pass, None);
-
-    //         for i in 0..MAX_FRAMES_IN_FLIGHT {
-    //             self.device
-    //                 .destroy_fence(self.sync.in_flight_fences[i], None);
-    //             self.device
-    //                 .destroy_semaphore(self.sync.render_finished_semaphores[i], None);
-    //             self.device
-    //                 .destroy_semaphore(self.sync.image_available_semaphores[i], None);
-    //         }
-    //     }
-    // }
 }
 
 impl Drop for Swapchain {

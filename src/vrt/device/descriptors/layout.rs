@@ -7,25 +7,31 @@ use erupt::vk1_0::{
 
 use crate::vrt::device::device::VRTDevice;
 
-pub struct VRTDescriptorSetLayout {
+pub struct VRTDescriptorSetLayout<'a> {
     device: Arc<VRTDevice>,
     descriptor_set_layout: DescriptorSetLayout,
+    pub bindings: Vec<DescriptorSetLayoutBindingBuilder<'a>>,
 }
 
-impl VRTDescriptorSetLayout {
-    pub fn new(device: Arc<VRTDevice>, bindings: &Vec<DescriptorSetLayoutBindingBuilder>) -> Self {
-        let layout_info = DescriptorSetLayoutCreateInfoBuilder::new().bindings(&bindings);
-        let descriptor_set_layout = unsafe {
-            device
-                .clone()
-                .get_device_ptr()
-                .create_descriptor_set_layout(&layout_info, None)
-                .unwrap()
-        };
-        Self {
-            device,
-            descriptor_set_layout,
-        }
+impl VRTDescriptorSetLayout<'_> {
+    // pub fn new(device: Arc<VRTDevice>, bindings: Vec<DescriptorSetLayoutBindingBuilder>) -> Self {
+    //     let layout_info = DescriptorSetLayoutCreateInfoBuilder::new().bindings(&bindings);
+    //     let descriptor_set_layout = unsafe {
+    //         device
+    //             .clone()
+    //             .get_device_ptr()
+    //             .create_descriptor_set_layout(&layout_info, None)
+    //             .unwrap()
+    //     };
+    //     Self {
+    //         device,
+    //         descriptor_set_layout,
+    //         bindings,
+    //     }
+    // }
+
+    pub fn get_descriptor_set_layout(&self) -> &DescriptorSetLayout {
+        &self.descriptor_set_layout
     }
 }
 
@@ -34,7 +40,7 @@ pub struct VRTDescriptorSetLayoutBuilder<'a> {
     bindings: Vec<DescriptorSetLayoutBindingBuilder<'a>>,
 }
 
-impl VRTDescriptorSetLayoutBuilder<'_> {
+impl<'a> VRTDescriptorSetLayoutBuilder<'a> {
     pub fn new(device: Arc<VRTDevice>) -> Self {
         Self {
             device,
@@ -43,22 +49,45 @@ impl VRTDescriptorSetLayoutBuilder<'_> {
     }
 
     pub fn add_binding(
-        &mut self,
+        mut self,
         binding: u32,
         descriptor_type: DescriptorType,
         stage_flags: ShaderStageFlags,
         count: Option<u32>,
-    ) -> &VRTDescriptorSetLayoutBuilder {
+    ) -> VRTDescriptorSetLayoutBuilder<'a> {
         let layout_binding = DescriptorSetLayoutBindingBuilder::new()
             .binding(binding)
             .descriptor_type(descriptor_type)
             .descriptor_count(count.unwrap_or(1))
             .stage_flags(stage_flags);
-        self.bindings[binding as usize] = layout_binding;
+        self.bindings.push(layout_binding);
         self
     }
 
-    pub fn build(&self) -> VRTDescriptorSetLayout {
-        VRTDescriptorSetLayout::new(self.device.clone(), &self.bindings)
+    pub fn build(self) -> VRTDescriptorSetLayout<'a> {
+        //VRTDescriptorSetLayout::new(self.device.clone(), self.bindings)
+        let layout_info = DescriptorSetLayoutCreateInfoBuilder::new().bindings(&self.bindings);
+        let descriptor_set_layout = unsafe {
+            self.device
+                .get_device_ptr()
+                .create_descriptor_set_layout(&layout_info, None)
+                .unwrap()
+        };
+
+        VRTDescriptorSetLayout {
+            device: self.device.clone(),
+            descriptor_set_layout,
+            bindings: self.bindings,
+        }
+    }
+}
+
+impl Drop for VRTDescriptorSetLayout<'_> {
+    fn drop(&mut self) {
+        unsafe {
+            self.device
+                .get_device_ptr()
+                .destroy_descriptor_set_layout(self.descriptor_set_layout, None);
+        }
     }
 }

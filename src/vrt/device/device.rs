@@ -6,11 +6,10 @@ use erupt::vk::CommandPool;
 use erupt::vk::CommandPoolCreateInfoBuilder;
 use erupt::vk::{
     make_api_version, ApplicationInfoBuilder, DeviceCreateInfoBuilder,
-    DeviceQueueCreateInfoBuilder, Extent2D, Framebuffer, FramebufferCreateInfoBuilder, ImageView,
-    InstanceCreateInfoBuilder, PhysicalDevice, PhysicalDeviceFeaturesBuilder, PresentModeKHR,
-    RenderPass, SurfaceCapabilitiesKHR, SurfaceFormatKHR, SurfaceKHR, API_VERSION_1_1,
-    KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, KHR_PORTABILITY_SUBSET_EXTENSION_NAME,
-    KHR_SWAPCHAIN_EXTENSION_NAME,
+    DeviceQueueCreateInfoBuilder, InstanceCreateInfoBuilder, PhysicalDevice,
+    PhysicalDeviceFeaturesBuilder, PresentModeKHR, SurfaceCapabilitiesKHR, SurfaceFormatKHR,
+    SurfaceKHR, API_VERSION_1_1, KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
+    KHR_PORTABILITY_SUBSET_EXTENSION_NAME, KHR_SWAPCHAIN_EXTENSION_NAME,
 };
 use erupt::vk1_0::{
     Buffer, BufferCreateInfoBuilder, BufferUsageFlags, CommandPoolCreateFlags, DeviceMemory,
@@ -363,6 +362,7 @@ impl VRTDevice {
 impl Drop for VRTDevice {
     fn drop(&mut self) {
         unsafe {
+            self.device.destroy_command_pool(self.command_pool, None);
             self.device.destroy_device(None);
 
             self.instance.destroy_surface_khr(self.surface, None);
