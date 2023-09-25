@@ -231,6 +231,10 @@ impl VRTRenderer {
     pub fn get_swapchain_render_pass(&self) -> RenderPass {
         self.swapchain.get_render_pass()
     }
+
+    pub fn get_frame_index(&self) -> &usize {
+        &self.current_frame_index
+    }
 }
 
 impl Drop for VRTRenderer {

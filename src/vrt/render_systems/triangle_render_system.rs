@@ -4,9 +4,7 @@ use erupt::vk1_0::{
     CommandBuffer, DescriptorSetLayout, PipelineLayout, PipelineLayoutCreateInfoBuilder, RenderPass,
 };
 
-use crate::vrt::device::VRTDevice;
-
-use super::{model::Model, pipeline::VRTPipeline};
+use crate::vrt::{device::VRTDevice, model::Model, pipeline::VRTPipeline};
 
 const VERTEX_SHADER: &str = "./assets/shaders/vert.spirv";
 const FRAGMENT_SHADER: &str = "./assets/shaders/frag.spirv";

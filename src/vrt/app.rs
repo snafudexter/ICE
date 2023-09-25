@@ -1,6 +1,8 @@
 use crate::vrt::buffer::VRTBuffer;
 use crate::vrt::descriptor_pool::{VRTDescriptorPoolBuilder, VRTDescriptorWriter};
+use crate::vrt::frame_info::GlobalUBO;
 use crate::vrt::layout::VRTDescriptorSetLayoutBuilder;
+use crate::vrt::render_systems::simple_render_system;
 use crate::vrt::swapchain::MAX_FRAMES_IN_FLIGHT;
 use crate::VRTWindow;
 use std::process;
@@ -12,34 +14,32 @@ use glam::Mat4;
 
 use erupt::vk1_0::{
     BufferUsageFlags, DescriptorSet, DescriptorType, DeviceSize, MemoryPropertyFlags,
-    ShaderStageFlags,
+    ShaderStageFlags, WHOLE_SIZE,
 };
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
 use super::device::VRTDevice;
 
+use super::frame_info::{DirectionalLight, FrameInfo};
 use super::model::Model;
+use super::render_systems::simple_render_system::SimpleRenderSystem;
+use super::render_systems::triangle_render_system::TriangleRenderSystem;
 use super::renderer::VRTRenderer;
 use super::result::VkResult;
-use super::triangle_render_system::TriangleRenderSystem;
+use dolly::prelude::*;
 
 pub struct VRTApp {
+    aspect_ratio: f32,
     device: Arc<VRTDevice>,
     window: VRTWindow,
     renderer: VRTRenderer,
     triangle_render_system: TriangleRenderSystem,
+    simple_render_system: SimpleRenderSystem,
+    ubo_buffers: Vec<VRTBuffer>,
     model: Model,
-    //global_pool: VRTDescriptorPool,
-    //global_descriptor_set_layout: VRTDescriptorSetLayout,
-}
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq, Default)]
-pub struct GlobalUBO {
-    model: Mat4,
-    view: Mat4,
-    projection: Mat4,
+    current_time: std::time::SystemTime, //global_pool: VRTDescriptorPool,
+                                         //global_descriptor_set_layout: VRTDescriptorSetLayout,
 }
 
 impl VRTApp {
@@ -56,7 +56,7 @@ impl VRTApp {
 
         let mut ubo_buffers: Vec<VRTBuffer> = vec![];
         for i in 0..MAX_FRAMES_IN_FLIGHT {
-            let ubo_buffer = VRTBuffer::new(
+            let mut ubo_buffer = VRTBuffer::new(
                 device.clone(),
                 std::mem::size_of::<GlobalUBO>() as DeviceSize,
                 1,
@@ -64,7 +64,7 @@ impl VRTApp {
                 MemoryPropertyFlags::HOST_VISIBLE,
                 None,
             );
-            ubo_buffer.map(None, None);
+            ubo_buffer.map(Some((std::mem::size_of::<GlobalUBO>()) as DeviceSize), None);
             ubo_buffers.push(ubo_buffer);
         }
 
@@ -107,17 +107,27 @@ impl VRTApp {
             global_descriptor_set_layout.get_descriptor_set_layout(),
         );
 
+        let simple_render_system: SimpleRenderSystem = SimpleRenderSystem::new(
+            device.clone(),
+            renderer.get_swapchain_render_pass(),
+            global_descriptor_set_layout.get_descriptor_set_layout(),
+        );
+
         Self {
+            aspect_ratio: width as f32 / height as f32,
             device,
             window,
             renderer,
             triangle_render_system,
             model,
-            //global_descriptor_set_layout,
+            simple_render_system,
+            current_time: std::time::SystemTime::now(), //global_descriptor_set_layout,
+            ubo_buffers,
         }
     }
 
     fn process_event(&mut self, event: Event<()>, control_flow: &mut ControlFlow) -> VkResult<()> {
+        self.current_time = std::time::SystemTime::now();
         match event {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
@@ -149,7 +159,57 @@ impl VRTApp {
     }
 
     fn draw_frame(&mut self) -> VkResult<()> {
+        let frame_time: u128 = self.current_time.elapsed().unwrap().as_micros();
+        self.current_time = std::time::SystemTime::now();
+
         let command_buffer = self.renderer.begin_frame(&self.window).unwrap();
+
+        let frame_index = self.renderer.get_frame_index();
+
+        let frame_info = FrameInfo::new(*frame_index, frame_time, command_buffer, vec![]);
+
+        let mut camera: CameraRig = CameraRig::builder()
+            .with(Position::new(glam::vec3(0f32, 0f32, -1f32)))
+            .with(YawPitch::new())
+            .with(Smooth::new_position_rotation(1.0, 1.0))
+            .build();
+
+        let camera_xform = camera.update(frame_time as f32);
+
+        let global_ubo = GlobalUBO::new(
+            glam::Mat4::IDENTITY,
+            glam::Mat4::look_at_rh(
+                camera_xform.position,
+                <[f32; 3]>::from(camera_xform.position + camera_xform.forward()).into(),
+                <[f32; 3]>::from(camera_xform.up()).into(),
+            ),
+            glam::Mat4::perspective_rh(45.0f32.to_radians(), self.aspect_ratio, 0.01f32, 100.0f32),
+            glam::vec4(1.0, 1.0, 0f32, 1.0),
+            vec![DirectionalLight::new(
+                glam::Vec3 {
+                    x: 1.0f32,
+                    y: -1f32,
+                    z: 0.0f32,
+                },
+                glam::Vec4 {
+                    x: 1.0,
+                    y: 1.0,
+                    z: 1.0,
+                    w: 1.0,
+                },
+            )],
+        );
+
+        self.ubo_buffers[*frame_index as usize].write_to_buffer(
+            &global_ubo,
+            self.ubo_buffers[*frame_index as usize]
+                .get_mapped_memory()
+                .unwrap(),
+            1 as DeviceSize,
+            0,
+        );
+
+        self.ubo_buffers[*frame_index as usize].flush(WHOLE_SIZE, 0);
 
         self.renderer.begin_swapchain_render_pass(command_buffer);
 

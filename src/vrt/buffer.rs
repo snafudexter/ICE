@@ -1,8 +1,12 @@
 use std::{ffi::c_void, os::raw::c_int, ptr::copy_nonoverlapping, sync::Arc};
 
-use erupt::vk1_0::{
-    Buffer, BufferUsageFlags, DescriptorBufferInfoBuilder, DeviceMemory, DeviceSize,
-    MemoryMapFlags, MemoryPropertyFlags, WHOLE_SIZE,
+use erupt::{
+    utils::VulkanResult,
+    vk1_0::{
+        Buffer, BufferUsageFlags, DescriptorBufferInfoBuilder, DeviceMemory, DeviceSize,
+        MappedMemoryRange, MappedMemoryRangeBuilder, MemoryMapFlags, MemoryPropertyFlags,
+        WHOLE_SIZE,
+    },
 };
 
 use crate::vrt::vertex::Vertex;
@@ -19,6 +23,7 @@ pub struct VRTBuffer {
     alignment_size: DeviceSize,
     usage_flags: BufferUsageFlags,
     memory_property_flags: MemoryPropertyFlags,
+    mapped_memory: Option<*mut c_void>,
 }
 
 impl VRTBuffer {
@@ -47,22 +52,30 @@ impl VRTBuffer {
             usage_flags,
             memory_property_flags,
             buffer_size,
+            mapped_memory: None,
         }
     }
 
-    pub fn map(&self, size: Option<DeviceSize>, offset: Option<DeviceSize>) -> *mut c_void {
+    pub fn map(&mut self, size: Option<DeviceSize>, offset: Option<DeviceSize>) {
         unsafe {
-            self.device
-                .get_device_ptr()
-                .map_memory(
-                    self.memory,
-                    offset.unwrap_or(0),
-                    size.unwrap_or(WHOLE_SIZE),
-                    MemoryMapFlags::empty(),
-                )
-                .result()
-                .unwrap()
+            let mapped_memory = Some(
+                self.device
+                    .get_device_ptr()
+                    .map_memory(
+                        self.memory,
+                        offset.unwrap_or(0),
+                        size.unwrap_or(WHOLE_SIZE),
+                        MemoryMapFlags::empty(),
+                    )
+                    .result()
+                    .unwrap() as *mut c_void,
+            );
+            self.mapped_memory = mapped_memory;
         }
+    }
+
+    pub fn get_mapped_memory(&self) -> Option<*mut c_void> {
+        self.mapped_memory
     }
 
     pub fn write_to_buffer<T>(
@@ -80,6 +93,19 @@ impl VRTBuffer {
                 let memory_offset = (mapped as u64 + offset) as *mut c_void;
                 copy_nonoverlapping(data, memory_offset.cast(), size as usize);
             }
+        }
+    }
+
+    pub fn flush(&self, size: DeviceSize, offset: DeviceSize) {
+        unsafe {
+            let mapped_memory_range = MappedMemoryRangeBuilder::new()
+                .memory(self.memory)
+                .size(size)
+                .offset(offset);
+
+            self.device
+                .get_device_ptr()
+                .flush_mapped_memory_ranges(&[mapped_memory_range]);
         }
     }
 
@@ -110,6 +136,7 @@ impl VRTBuffer {
 
 impl Drop for VRTBuffer {
     fn drop(&mut self) {
+        //self.unmap();
         unsafe {
             self.device
                 .get_device_ptr()

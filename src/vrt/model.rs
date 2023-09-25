@@ -61,7 +61,7 @@ impl Model {
     ) -> VkResult<VRTBuffer> {
         let buffer_size = (mem::size_of::<Vertex>() * Vertex::VERTICES.len()) as DeviceSize;
 
-        let staging_buffer = VRTBuffer::new(
+        let mut staging_buffer = VRTBuffer::new(
             device.clone(),
             mem::size_of::<Vertex>().try_into().unwrap(),
             Vertex::VERTICES.len().try_into().unwrap(),
@@ -79,11 +79,11 @@ impl Model {
         //     MemoryPropertyFlags::HOST_VISIBLE | MemoryPropertyFlags::HOST_COHERENT,
         // )?;
 
-        let mapped = staging_buffer.map(Some(buffer_size), Some(0));
+        staging_buffer.map(Some(buffer_size), Some(0));
 
         staging_buffer.write_to_buffer(
             Vertex::VERTICES.as_ptr(),
-            mapped,
+            staging_buffer.get_mapped_memory().unwrap(),
             Vertex::VERTICES.len() as DeviceSize,
             0,
         );
