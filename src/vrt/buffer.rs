@@ -5,7 +5,7 @@ use erupt::vk1_0::{
     MemoryMapFlags, MemoryPropertyFlags, WHOLE_SIZE,
 };
 
-use crate::vrt::graphics::vertex::Vertex;
+use crate::vrt::vertex::Vertex;
 
 use super::device::VRTDevice;
 

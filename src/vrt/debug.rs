@@ -1,4 +1,4 @@
-use crate::vrt::utils::result::VkResult;
+use crate::vrt::result::VkResult;
 use erupt::vk::{
     Bool32, DebugUtilsMessageSeverityFlagBitsEXT, DebugUtilsMessageSeverityFlagsEXT,
     DebugUtilsMessageTypeFlagsEXT, DebugUtilsMessengerCallbackDataEXT,
@@ -6,7 +6,6 @@ use erupt::vk::{
     EXT_DEBUG_UTILS_EXTENSION_NAME, FALSE,
 };
 use erupt::{cstr, EntryLoader, InstanceLoader};
-use log::{debug, error, info, warn};
 use std::array;
 use std::ffi::CStr;
 use std::os::raw::{c_char, c_void};

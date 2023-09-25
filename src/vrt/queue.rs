@@ -1,6 +1,6 @@
 use std::convert::TryFrom;
 
-use crate::vrt::utils::result::VkResult;
+use crate::vrt::result::VkResult;
 use erupt::vk::{PhysicalDevice, Queue, QueueFlags, SurfaceKHR};
 use erupt::InstanceLoader;
 

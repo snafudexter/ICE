@@ -10,7 +10,7 @@ use erupt::{
     SmallVec,
 };
 
-use crate::vrt::device::device::VRTDevice;
+use crate::vrt::device::VRTDevice;
 
 use super::layout::VRTDescriptorSetLayout;
 

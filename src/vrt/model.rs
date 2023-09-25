@@ -1,23 +1,22 @@
-use std::{convert::TryInto, ffi::c_void, mem, ptr::copy_nonoverlapping, sync::Arc};
+use std::{convert::TryInto, mem, sync::Arc};
 
-use color_eyre::owo_colors::OwoColorize;
 use erupt::{
     vk1_0::{
         Buffer, BufferCopyBuilder, BufferCreateInfoBuilder, BufferUsageFlags, CommandBuffer,
         CommandBufferAllocateInfoBuilder, CommandBufferBeginInfoBuilder, CommandBufferLevel,
         CommandBufferUsageFlags, CommandPool, DeviceMemory, DeviceSize, Fence,
-        MemoryAllocateInfoBuilder, MemoryMapFlags, MemoryPropertyFlags, PhysicalDevice, Queue,
-        SharingMode, SubmitInfoBuilder, WHOLE_SIZE,
+        MemoryAllocateInfoBuilder, MemoryPropertyFlags, PhysicalDevice, Queue, SharingMode,
+        SubmitInfoBuilder,
     },
     DeviceLoader, InstanceLoader,
 };
 
-use crate::vrt::{
-    device::{buffer::VRTBuffer, device::VRTDevice},
-    utils::result::{VkError, VkResult},
+use super::{
+    buffer::VRTBuffer,
+    device::VRTDevice,
+    result::{VkError, VkResult},
+    vertex::Vertex,
 };
-
-use super::vertex::Vertex;
 
 pub struct Model {
     device: Arc<VRTDevice>,

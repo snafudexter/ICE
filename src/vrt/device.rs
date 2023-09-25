@@ -1,5 +1,5 @@
-use crate::vrt::device::queue::{CompleteQueueFamilyIndices, QueueFamilyIndices, Queues};
-use crate::vrt::utils::result::{VkError, VkResult};
+use crate::vrt::queue::{CompleteQueueFamilyIndices, QueueFamilyIndices, Queues};
+use crate::vrt::result::{VkError, VkResult};
 use crate::vrt::window::VRTWindow;
 use erupt::utils::surface;
 use erupt::vk::CommandPool;
@@ -26,7 +26,7 @@ use std::sync::Arc;
 use winit::window::Window;
 
 #[cfg(debug_assertions)]
-use crate::vrt::utils::debug;
+use crate::vrt::debug;
 
 const DEVICE_EXTENSIONS: *const c_char = KHR_SWAPCHAIN_EXTENSION_NAME;
 

@@ -1,6 +1,6 @@
-use crate::vrt::device::device::VRTDevice;
-use crate::vrt::device::sync::SyncObjects;
-use crate::vrt::utils::result::{VkError, VkResult};
+use crate::vrt::device::VRTDevice;
+use crate::vrt::result::{VkError, VkResult};
+use crate::vrt::sync::SyncObjects;
 use erupt::vk::CommandBuffer;
 use erupt::vk::Framebuffer;
 use erupt::vk::PresentInfoKHRBuilder;

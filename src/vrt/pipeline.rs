@@ -17,8 +17,8 @@ use erupt::vk1_0::{
     VertexInputBindingDescriptionBuilder,
 };
 
-use crate::vrt::device::device::VRTDevice;
-use crate::vrt::utils::result::VkResult;
+use crate::vrt::device::VRTDevice;
+use crate::vrt::result::VkResult;
 
 use super::vertex::Vertex;
 

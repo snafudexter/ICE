@@ -1,8 +1,8 @@
-use crate::vrt::device::device::VRTDevice;
-use crate::vrt::device::swapchain::Swapchain;
-use crate::vrt::device::swapchain::MAX_FRAMES_IN_FLIGHT;
-use crate::vrt::utils::result::VkError;
-use crate::vrt::utils::result::{VkError::SwapChainExpired, VkResult};
+use crate::vrt::device::VRTDevice;
+use crate::vrt::result::VkError;
+use crate::vrt::result::{VkError::SwapChainExpired, VkResult};
+use crate::vrt::swapchain::Swapchain;
+use crate::vrt::swapchain::MAX_FRAMES_IN_FLIGHT;
 use crate::VRTWindow;
 use erupt::vk;
 use erupt::vk::ClearColorValue;

@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
 use erupt::vk1_0::{
-    DescriptorSetLayout, DescriptorSetLayoutBinding, DescriptorSetLayoutBindingBuilder,
-    DescriptorSetLayoutCreateInfoBuilder, DescriptorType, ShaderStageFlags,
+    DescriptorSetLayout, DescriptorSetLayoutBindingBuilder, DescriptorSetLayoutCreateInfoBuilder,
+    DescriptorType, ShaderStageFlags,
 };
 
-use crate::vrt::device::device::VRTDevice;
+use crate::vrt::device::VRTDevice;
 
 pub struct VRTDescriptorSetLayout<'a> {
     device: Arc<VRTDevice>,
