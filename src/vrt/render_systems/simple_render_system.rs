@@ -65,11 +65,7 @@ impl SimpleRenderSystem {
 
     pub fn render(&self, device: Arc<VRTDevice>, frame_info: FrameInfo) {
         self.pipeline.bind(*frame_info.get_command_buffer());
-        println!("************render************");
-        println!(
-            "descriptor_sets count {:?}",
-            frame_info.get_global_descriptor_sets().len()
-        );
+
         unsafe {
             device.get_device_ptr().cmd_bind_descriptor_sets(
                 *frame_info.get_command_buffer(),

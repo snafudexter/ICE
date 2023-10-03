@@ -20,6 +20,7 @@ use erupt::vk1_0::{
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
+use super::descriptor_pool::VRTDescriptorPool;
 use super::device::VRTDevice;
 
 use super::frame_info::{DirectionalLight, FrameInfo, PointLight};
@@ -41,8 +42,9 @@ pub struct VRTApp {
     ubo_buffers: Vec<VRTBuffer>,
     current_time: std::time::SystemTime,
     game_objects: Vec<GameObject>,
-    descriptor_sets: Vec<SmallVec<DescriptorSet>>, //global_pool: VRTDescriptorPool,
-                                                   //global_descriptor_set_layout: VRTDescriptorSetLayout,
+    descriptor_sets: Vec<SmallVec<DescriptorSet>>,
+    global_pool: Rc<VRTDescriptorPool>,
+    //global_descriptor_set_layout: VRTDescriptorSetLayout,
 }
 
 impl VRTApp {
@@ -130,6 +132,7 @@ impl VRTApp {
             current_time: std::time::SystemTime::now(), //global_descriptor_set_layout,
             ubo_buffers,
             descriptor_sets: global_descriptor_sets,
+            global_pool,
         }
     }
 
@@ -172,9 +175,6 @@ impl VRTApp {
         let command_buffer = self.renderer.begin_frame(&self.window).unwrap();
 
         let frame_index = self.renderer.get_frame_index();
-
-        println!("************draw_frame************");
-        println!("descriptor_sets count {:?}", self.descriptor_sets.len());
 
         let frame_info = FrameInfo::new(
             *frame_index,
