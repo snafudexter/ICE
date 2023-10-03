@@ -154,7 +154,7 @@ impl VRTPipeline {
             .rasterizer_discard_enable(false)
             .polygon_mode(PolygonMode::FILL)
             .line_width(1.0)
-            //.cull_mode(CullModeFlags::BACK)
+            .cull_mode(CullModeFlags::BACK)
             .front_face(FrontFace::CLOCKWISE)
             .depth_bias_enable(false);
 
