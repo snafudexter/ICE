@@ -185,7 +185,7 @@ impl VRTApp {
         );
 
         let mut camera: CameraRig = CameraRig::builder()
-            .with(Position::new(glam::vec3(0f32, 0f32, 10f32)))
+            .with(Position::new(glam::vec3(2f32, 2f32, 2f32)))
             .with(YawPitch::new())
             .with(Smooth::new_position_rotation(1.0, 1.0))
             .build();

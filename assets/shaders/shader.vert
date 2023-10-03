@@ -19,7 +19,6 @@
 // }
 
 #version 450
-#extension GL_EXT_debug_printf : enable
 
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec3 color;
@@ -52,8 +51,6 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
 
 void main() {
     vec4 positionWorld = ubo.model_matrix * vec4(position, 1.0);
-    debugPrintfEXT("*******************");
-    debugPrintfEXT("positionWorld %f", positionWorld);
     gl_Position = ubo.projection * ubo.view * positionWorld;
     fragNormalWorld = normalize(normal);
     fragPosWorld = positionWorld.xyz;
