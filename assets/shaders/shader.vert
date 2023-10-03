@@ -19,6 +19,7 @@
 // }
 
 #version 450
+#extension GL_EXT_debug_printf : enable
 
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec3 color;
@@ -30,17 +31,17 @@ layout(location = 1) out vec3 fragPosWorld;
 layout(location = 2) out vec3 fragNormalWorld;
 
 struct PointLight {
-    vec4 position; // ignore w
+    vec3 position; // ignore w
     vec4 color; // w is intensity
 };
 
 layout(set = 0, binding = 0) uniform GlobalUbo {
-    mat4 modelMatrix;
+    mat4 model_matrix;
     mat4 projection;
     mat4 view;
     mat4 inverse_view;
-    vec4 ambientLightColor; // w is intensity
-    PointLight pointLights[1];
+    vec4 ambient_light_color; // w is intensity
+    PointLight point_lights[1];
     int numLights;
 } ubo;
 
@@ -50,7 +51,9 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
 // } push;
 
 void main() {
-    vec4 positionWorld = ubo.modelMatrix * vec4(position, 1.0);
+    vec4 positionWorld = ubo.model_matrix * vec4(position, 1.0);
+    debugPrintfEXT("*******************");
+    debugPrintfEXT("positionWorld %f", positionWorld);
     gl_Position = ubo.projection * ubo.view * positionWorld;
     fragNormalWorld = normalize(normal);
     fragPosWorld = positionWorld.xyz;

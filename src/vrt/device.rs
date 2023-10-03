@@ -9,7 +9,8 @@ use erupt::vk::{
     DeviceQueueCreateInfoBuilder, InstanceCreateInfoBuilder, PhysicalDevice,
     PhysicalDeviceFeaturesBuilder, PresentModeKHR, SurfaceCapabilitiesKHR, SurfaceFormatKHR,
     SurfaceKHR, API_VERSION_1_1, KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
-    KHR_PORTABILITY_SUBSET_EXTENSION_NAME, KHR_SWAPCHAIN_EXTENSION_NAME,
+    KHR_PORTABILITY_SUBSET_EXTENSION_NAME, KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME,
+    KHR_SWAPCHAIN_EXTENSION_NAME,
 };
 use erupt::vk1_0::{
     Buffer, BufferCreateInfoBuilder, BufferUsageFlags, CommandPoolCreateFlags, DeviceMemory,
@@ -273,9 +274,16 @@ impl VRTDevice {
 
         let device_extensions: &[*const c_char];
         if std::env::consts::OS.contains("macos") {
-            device_extensions = &[DEVICE_EXTENSIONS, KHR_PORTABILITY_SUBSET_EXTENSION_NAME];
+            device_extensions = &[
+                DEVICE_EXTENSIONS,
+                KHR_PORTABILITY_SUBSET_EXTENSION_NAME,
+                KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME,
+            ];
         } else {
-            device_extensions = &[DEVICE_EXTENSIONS];
+            device_extensions = &[
+                DEVICE_EXTENSIONS,
+                KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME,
+            ];
         }
 
         let required_extensions = device_extensions

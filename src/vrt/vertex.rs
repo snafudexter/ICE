@@ -29,19 +29,19 @@ pub struct Vertex {
 impl Vertex {
     pub const VERTICES: [Vertex; 3] = [
         Vertex::new(
-            Vec3::from_array([0.0, 1.0, 0.0]),
+            Vec3::from_array([0.0, 5.0, 0.0]),
             Vec3::from_array([1.0, 0.0, 0.0]),
-            Vec3::from_array([0.0, 0.0, -1.0]),
+            Vec3::from_array([0.0, 0.0, 1.0]),
         ),
         Vertex::new(
-            Vec3::from_array([-1.0, 1.0, 0.0]),
+            Vec3::from_array([-5.0, 5.0, 0.0]),
             Vec3::from_array([0.0, 1.0, 0.0]),
-            Vec3::from_array([0.0, 0.0, -1.0]),
+            Vec3::from_array([0.0, 0.0, 1.0]),
         ),
         Vertex::new(
-            Vec3::from_array([1.0, 0.0, 0.0]),
+            Vec3::from_array([5.0, 0.0, 0.0]),
             Vec3::from_array([0.0, 1.0, 1.0]),
-            Vec3::from_array([0.0, 0.0, -1.0]),
+            Vec3::from_array([0.0, 0.0, 1.0]),
         ),
     ];
 

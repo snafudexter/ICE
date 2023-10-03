@@ -185,30 +185,35 @@ impl VRTApp {
         );
 
         let mut camera: CameraRig = CameraRig::builder()
-            .with(Position::new(glam::vec3(0f32, 0f32, -2f32)))
+            .with(Position::new(glam::vec3(0f32, 0f32, 10f32)))
             .with(YawPitch::new())
             .with(Smooth::new_position_rotation(1.0, 1.0))
             .build();
 
         let camera_xform = camera.update(frame_time as f32);
 
+        let forward = camera_xform.forward();
+        let up = camera_xform.up();
+        let center = camera_xform.position + camera_xform.forward();
+
         let global_ubo = GlobalUBO::new(
             glam::Mat4::IDENTITY,
             glam::Mat4::look_at_rh(
                 camera_xform.position,
-                <[f32; 3]>::from(camera_xform.position + camera_xform.forward()).into(),
-                <[f32; 3]>::from(camera_xform.up()).into(),
+                <[f32; 3]>::from(camera_xform.forward()).into(),
+                <[f32; 3]>::from(glam::vec3(0f32, -1f32, 0f32)).into(),
             ),
-            glam::Mat4::perspective_rh(45.0f32.to_radians(), self.aspect_ratio, 0.01f32, 100.0f32),
+            glam::Mat4::perspective_rh(60.0f32.to_radians(), self.aspect_ratio, 0.01f32, 100.0f32),
             glam::vec4(1.0, 1.0, 0f32, 1.0),
             vec![PointLight::new(
                 glam::Vec3 {
                     x: 1.0f32,
-                    y: -1f32,
+                    y: 1f32,
                     z: 0.0f32,
                 },
                 glam::vec4(1.0, 1.0, 1.0, 1.0),
             )],
+            1,
         );
 
         self.ubo_buffers[*frame_index as usize].write_to_buffer(
