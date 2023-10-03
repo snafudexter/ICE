@@ -21,28 +21,36 @@ macro_rules! offset_of {
 
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 pub struct Vertex {
-    position: Vec2,
+    position: Vec3,
     color: Vec3,
+    normal: Vec3,
 }
 
 impl Vertex {
     pub const VERTICES: [Vertex; 3] = [
         Vertex::new(
-            Vec2::from_array([0.0, -0.5]),
-            Vec3::from_array([1.0, 0.0, 0.0]),
-        ),
-        Vertex::new(
-            Vec2::from_array([0.5, 0.5]),
             Vec3::from_array([0.0, 1.0, 0.0]),
+            Vec3::from_array([1.0, 0.0, 0.0]),
+            Vec3::from_array([0.0, 0.0, -1.0]),
         ),
         Vertex::new(
-            Vec2::from_array([-0.5, 0.5]),
+            Vec3::from_array([-1.0, 1.0, 0.0]),
+            Vec3::from_array([0.0, 1.0, 0.0]),
+            Vec3::from_array([0.0, 0.0, -1.0]),
+        ),
+        Vertex::new(
+            Vec3::from_array([1.0, 0.0, 0.0]),
             Vec3::from_array([0.0, 1.0, 1.0]),
+            Vec3::from_array([0.0, 0.0, -1.0]),
         ),
     ];
 
-    pub const fn new(position: Vec2, color: Vec3) -> Self {
-        Self { position, color }
+    pub const fn new(position: Vec3, color: Vec3, normal: Vec3) -> Self {
+        Self {
+            position,
+            color,
+            normal,
+        }
     }
 
     pub fn binding_description() -> VertexInputBindingDescriptionBuilder<'static> {
@@ -52,7 +60,7 @@ impl Vertex {
             .input_rate(VertexInputRate::VERTEX)
     }
 
-    pub fn attribute_descriptions() -> [VertexInputAttributeDescriptionBuilder<'static>; 2] {
+    pub fn attribute_descriptions() -> [VertexInputAttributeDescriptionBuilder<'static>; 3] {
         [
             VertexInputAttributeDescriptionBuilder::new()
                 .binding(0)
@@ -64,6 +72,11 @@ impl Vertex {
                 .location(1)
                 .format(Format::R32G32B32_SFLOAT)
                 .offset(offset_of!(Self, color)),
+            VertexInputAttributeDescriptionBuilder::new()
+                .binding(0)
+                .location(2)
+                .format(Format::R32G32B32_SFLOAT)
+                .offset(offset_of!(Self, normal)),
         ]
     }
 }

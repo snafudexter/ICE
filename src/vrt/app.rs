@@ -1,6 +1,7 @@
 use crate::vrt::buffer::VRTBuffer;
 use crate::vrt::descriptor_pool::{VRTDescriptorPoolBuilder, VRTDescriptorWriter};
 use crate::vrt::frame_info::GlobalUBO;
+use crate::vrt::game_object;
 use crate::vrt::layout::VRTDescriptorSetLayoutBuilder;
 use crate::vrt::render_systems::simple_render_system;
 use crate::vrt::swapchain::MAX_FRAMES_IN_FLIGHT;
@@ -21,7 +22,8 @@ use winit::event_loop::{ControlFlow, EventLoop};
 
 use super::device::VRTDevice;
 
-use super::frame_info::{DirectionalLight, FrameInfo};
+use super::frame_info::{DirectionalLight, FrameInfo, PointLight};
+use super::game_object::GameObject;
 use super::model::Model;
 use super::render_systems::simple_render_system::SimpleRenderSystem;
 use super::render_systems::triangle_render_system::TriangleRenderSystem;
@@ -37,9 +39,10 @@ pub struct VRTApp {
     triangle_render_system: TriangleRenderSystem,
     simple_render_system: SimpleRenderSystem,
     ubo_buffers: Vec<VRTBuffer>,
-    model: Model,
-    current_time: std::time::SystemTime, //global_pool: VRTDescriptorPool,
-                                         //global_descriptor_set_layout: VRTDescriptorSetLayout,
+    current_time: std::time::SystemTime,
+    game_objects: Vec<GameObject>,
+    descriptor_sets: Vec<SmallVec<DescriptorSet>>, //global_pool: VRTDescriptorPool,
+                                                   //global_descriptor_set_layout: VRTDescriptorSetLayout,
 }
 
 impl VRTApp {
@@ -53,6 +56,16 @@ impl VRTApp {
         let renderer = VRTRenderer::new(device.clone(), &window).unwrap();
 
         let model = Model::new(device.get_instance(), device.clone());
+
+        let global_pool = std::rc::Rc::new(
+            VRTDescriptorPoolBuilder::new(device.clone())
+                .set_max_sets(u32::try_from(MAX_FRAMES_IN_FLIGHT).unwrap())
+                .add_pool_size(
+                    DescriptorType::UNIFORM_BUFFER,
+                    u32::try_from(MAX_FRAMES_IN_FLIGHT).unwrap(),
+                )
+                .build(),
+        );
 
         let mut ubo_buffers: Vec<VRTBuffer> = vec![];
         for i in 0..MAX_FRAMES_IN_FLIGHT {
@@ -68,37 +81,28 @@ impl VRTApp {
             ubo_buffers.push(ubo_buffer);
         }
 
-        let global_pool = std::rc::Rc::new(
-            VRTDescriptorPoolBuilder::new(device.clone())
-                .set_max_sets(u32::try_from(MAX_FRAMES_IN_FLIGHT).unwrap())
-                .add_pool_size(
-                    DescriptorType::UNIFORM_BUFFER,
-                    u32::try_from(MAX_FRAMES_IN_FLIGHT).unwrap(),
-                )
-                .build(),
-        );
-
         let global_descriptor_set_layout = VRTDescriptorSetLayoutBuilder::new(device.clone())
             .add_binding(
                 0,
                 DescriptorType::UNIFORM_BUFFER,
                 ShaderStageFlags::ALL_GRAPHICS,
-                None,
+                Some(1),
             )
             .build();
 
         let global_descriptor_set_layout = Rc::new(global_descriptor_set_layout);
 
-        let mut global_descriptor_sets: SmallVec<DescriptorSet>;
+        let mut global_descriptor_sets: Vec<SmallVec<DescriptorSet>> = vec![].into();
 
         for i in 0..MAX_FRAMES_IN_FLIGHT {
             let buffer_info =
                 ubo_buffers[i].get_buffer_info(std::mem::size_of::<GlobalUBO>() as DeviceSize);
-            global_descriptor_sets =
+            global_descriptor_sets.push(
                 VRTDescriptorWriter::new(global_descriptor_set_layout.clone(), global_pool.clone())
                     .write_buffer(0, &buffer_info)
-                    .build()
-                    .unwrap();
+                    .build(i)
+                    .unwrap(),
+            )
         }
 
         let triangle_render_system = TriangleRenderSystem::new(
@@ -113,16 +117,19 @@ impl VRTApp {
             global_descriptor_set_layout.get_descriptor_set_layout(),
         );
 
+        let game_object = GameObject::new(Some(model));
+
         Self {
             aspect_ratio: width as f32 / height as f32,
             device,
             window,
             renderer,
             triangle_render_system,
-            model,
+            game_objects: vec![game_object],
             simple_render_system,
             current_time: std::time::SystemTime::now(), //global_descriptor_set_layout,
             ubo_buffers,
+            descriptor_sets: global_descriptor_sets,
         }
     }
 
@@ -166,10 +173,19 @@ impl VRTApp {
 
         let frame_index = self.renderer.get_frame_index();
 
-        let frame_info = FrameInfo::new(*frame_index, frame_time, command_buffer, vec![]);
+        println!("************draw_frame************");
+        println!("descriptor_sets count {:?}", self.descriptor_sets.len());
+
+        let frame_info = FrameInfo::new(
+            *frame_index,
+            frame_time,
+            command_buffer,
+            &self.game_objects,
+            &self.descriptor_sets[*frame_index],
+        );
 
         let mut camera: CameraRig = CameraRig::builder()
-            .with(Position::new(glam::vec3(0f32, 0f32, -1f32)))
+            .with(Position::new(glam::vec3(0f32, 0f32, -2f32)))
             .with(YawPitch::new())
             .with(Smooth::new_position_rotation(1.0, 1.0))
             .build();
@@ -185,7 +201,7 @@ impl VRTApp {
             ),
             glam::Mat4::perspective_rh(45.0f32.to_radians(), self.aspect_ratio, 0.01f32, 100.0f32),
             glam::vec4(1.0, 1.0, 0f32, 1.0),
-            vec![DirectionalLight::new(
+            vec![PointLight::new(
                 glam::Vec3 {
                     x: 1.0f32,
                     y: -1f32,
@@ -213,8 +229,8 @@ impl VRTApp {
 
         self.renderer.begin_swapchain_render_pass(command_buffer);
 
-        self.triangle_render_system
-            .render(self.device.clone(), command_buffer, &self.model);
+        self.simple_render_system
+            .render(self.device.clone(), frame_info);
 
         self.renderer.end_swapchain_render_pass(command_buffer);
         self.renderer.end_frame(&mut self.window, command_buffer);

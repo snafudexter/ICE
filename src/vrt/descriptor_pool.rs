@@ -146,7 +146,7 @@ impl<'a> VRTDescriptorWriter<'a> {
         self
     }
 
-    pub fn build(mut self) -> Option<SmallVec<DescriptorSet>> {
+    pub fn build(mut self, frame_index: usize) -> Option<SmallVec<DescriptorSet>> {
         let success = self
             .pool
             .allocate_descriptor(self.layout.get_descriptor_set_layout());
@@ -160,9 +160,6 @@ impl<'a> VRTDescriptorWriter<'a> {
                     .map(|(write, descriptor_set)| write.dst_set(*descriptor_set))
                     .collect::<Vec<WriteDescriptorSetBuilder>>();
 
-                // for (write, descriptor_set) in self.writes.iter() {
-                //     write.dst_set(*descriptor_sets);
-                // }
                 self.overwrite();
 
                 Some(descriptor_sets)

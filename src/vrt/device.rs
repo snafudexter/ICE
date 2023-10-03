@@ -73,11 +73,6 @@ impl VRTDevice {
 
         let command_pool = Self::create_command_pool(&queue_family_indices, &device)?;
 
-        let properties: PhysicalDeviceProperties;
-        unsafe {
-            properties = instance.get_physical_device_properties(physical_device);
-        }
-
         Ok(Self {
             _queues: queues,
             device,

@@ -1,10 +1,16 @@
 use std::sync::Arc;
 
 use erupt::vk1_0::{
-    CommandBuffer, DescriptorSetLayout, PipelineLayout, PipelineLayoutCreateInfoBuilder, RenderPass,
+    CommandBuffer, DescriptorSetLayout, PipelineBindPoint, PipelineLayout,
+    PipelineLayoutCreateInfoBuilder, RenderPass,
 };
 
-use crate::vrt::{device::VRTDevice, model::Model, pipeline::VRTPipeline};
+use crate::vrt::{
+    device::VRTDevice,
+    frame_info::{self, FrameInfo},
+    model::Model,
+    pipeline::VRTPipeline,
+};
 
 const VERTEX_SHADER: &str = "./assets/shaders/vert.spirv";
 const FRAGMENT_SHADER: &str = "./assets/shaders/frag.spirv";
@@ -57,10 +63,30 @@ impl SimpleRenderSystem {
         .unwrap()
     }
 
-    pub fn render(&self, device: Arc<VRTDevice>, command_buffer: CommandBuffer, model: &Model) {
-        self.pipeline.bind(command_buffer);
-        model.bind(device.clone(), command_buffer);
-        model.draw(device, command_buffer)
+    pub fn render(&self, device: Arc<VRTDevice>, frame_info: FrameInfo) {
+        self.pipeline.bind(*frame_info.get_command_buffer());
+        println!("************render************");
+        println!(
+            "descriptor_sets count {:?}",
+            frame_info.get_global_descriptor_sets().len()
+        );
+        unsafe {
+            device.get_device_ptr().cmd_bind_descriptor_sets(
+                *frame_info.get_command_buffer(),
+                PipelineBindPoint::GRAPHICS,
+                self.pipeline_layout,
+                0,
+                frame_info.get_global_descriptor_sets(),
+                &[],
+            );
+        }
+
+        for game_object in frame_info.get_game_objects().iter() {
+            let command_buffer = *frame_info.get_command_buffer();
+            let model = game_object.get_model();
+            model.bind(device.clone(), command_buffer);
+            model.draw(device.clone(), command_buffer);
+        }
     }
 }
 

@@ -8,18 +8,22 @@ struct TransformComponent {
 
 pub struct GameObject {
     transform_component: TransformComponent,
-    model: Option<Model>,
+    pub model: Option<Model>,
 }
 
 impl GameObject {
-    pub fn new() -> Self {
+    pub fn new(model: Option<Model>) -> Self {
         Self {
             transform_component: TransformComponent {
                 translation: glam::Vec3::ZERO,
                 scale: glam::Vec3::ONE,
                 rotation: glam::Vec3::ZERO,
             },
-            model: None,
+            model,
         }
+    }
+
+    pub fn get_model(&self) -> &Model {
+        self.model.as_ref().unwrap()
     }
 }
