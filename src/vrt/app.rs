@@ -197,22 +197,20 @@ impl VRTApp {
             glam::Mat4::look_at_lh(
                 glam::vec3(0.0, 0.0, 10.0),
                 glam::vec3(0f32, 0f32, 1.0f32),
-                glam::vec3(0f32, 1f32, 0f32),
+                glam::vec3(0f32, -1f32, 0f32),
             ),
             glam::Mat4::perspective_lh(45.0f32.to_radians(), self.aspect_ratio, 0.01f32, 100.0f32),
-            // glam::vec4(1.0, 1.0, 0f32, 1.0),
-            // vec![PointLight::new(
-            //     glam::Vec3 {
-            //         x: 1.0f32,
-            //         y: 1f32,
-            //         z: 0.0f32,
-            //     },
-            //     glam::vec4(1.0, 1.0, 1.0, 1.0),
-            // )],
-            // 1,
+            glam::vec4(1.0, 1.0, 0f32, 1.0),
+            vec![PointLight::new(
+                glam::Vec3 {
+                    x: 1.0f32,
+                    y: 1f32,
+                    z: 0.0f32,
+                },
+                glam::vec4(1.0, 1.0, 1.0, 1.0),
+            )],
+            1,
         );
-
-        let size_of_struct = std::mem::size_of::<GlobalUBO>();
 
         self.ubo_buffers[*frame_index as usize].write_to_buffer(
             &global_ubo,
