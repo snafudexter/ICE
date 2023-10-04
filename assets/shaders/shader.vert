@@ -50,7 +50,7 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
 // } push;
 
 void main() {
-    vec4 positionWorld = ubo.model_matrix * vec4(position, 0.0);
+    vec4 positionWorld = ubo.model_matrix * vec4(position, 1.0);
     gl_Position = ubo.projection * ubo.view * positionWorld;
     fragNormalWorld = normalize(normal);
     fragPosWorld = positionWorld.xyz;

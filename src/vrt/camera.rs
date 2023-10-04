@@ -14,4 +14,18 @@ impl VRTCamera {
 
         Self { camera }
     }
+
+    pub fn get_view_matrix(
+        position: glam::Vec3,
+        direction: glam::Vec3,
+        up: glam::Vec3,
+    ) -> glam::Mat4 {
+        let w = glam::Vec3::normalize(direction);
+        let u = glam::Vec3::normalize(glam::Vec3::cross(w, up));
+        let v = glam::Vec3::cross(w, u);
+
+        let mut view_matrix = glam::Mat4::IDENTITY;
+
+        view_matrix
+    }
 }
