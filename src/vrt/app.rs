@@ -1,7 +1,6 @@
 use crate::vrt::buffer::VRTBuffer;
 use crate::vrt::descriptor_pool::{VRTDescriptorPoolBuilder, VRTDescriptorWriter};
 use crate::vrt::frame_info::GlobalUBO;
-use crate::vrt::game_object;
 use crate::vrt::layout::VRTDescriptorSetLayoutBuilder;
 use crate::vrt::render_systems::simple_render_system;
 use crate::vrt::swapchain::MAX_FRAMES_IN_FLIGHT;
@@ -11,7 +10,6 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use erupt::SmallVec;
-use glam::Mat4;
 
 use erupt::vk1_0::{
     BufferUsageFlags, DescriptorSet, DescriptorType, DeviceSize, MemoryPropertyFlags,
@@ -23,7 +21,7 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use super::descriptor_pool::VRTDescriptorPool;
 use super::device::VRTDevice;
 
-use super::frame_info::{DirectionalLight, FrameInfo, PointLight};
+use super::frame_info::{FrameInfo, PointLight};
 use super::game_object::GameObject;
 use super::model::Model;
 use super::render_systems::simple_render_system::SimpleRenderSystem;
@@ -185,18 +183,24 @@ impl VRTApp {
         );
 
         let mut camera: CameraRig = CameraRig::builder()
-            .with(Position::new(glam::vec3(2f32, 2f32, 2f32)))
+            .with(Position::new(glam::vec3(0f32, 0f32, 10f32)))
             .with(YawPitch::new())
             .with(Smooth::new_position_rotation(1.0, 1.0))
             .build();
 
         let camera_xform = camera.update(frame_time as f32);
 
+        // let view_matrix = glam::Mat4::look_at_lh(
+        //     glam::vec3(0.0, 0.0, 10.0),
+        //     glam::vec3(0f32, 0f32, 1.0f32),
+        //     glam::vec3(0f32, -1f32, 0f32),
+        // );
+
         let global_ubo = GlobalUBO::new(
             glam::Mat4::IDENTITY,
             glam::Mat4::look_at_lh(
-                glam::vec3(0.0, 0.0, 10.0),
-                glam::vec3(0f32, 0f32, 1.0f32),
+                camera_xform.position,
+                camera_xform.forward(),
                 glam::vec3(0f32, -1f32, 0f32),
             ),
             glam::Mat4::perspective_lh(45.0f32.to_radians(), self.aspect_ratio, 0.01f32, 100.0f32),
