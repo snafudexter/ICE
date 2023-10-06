@@ -37,10 +37,10 @@ pub struct GlobalUBO {
     model_matrix: glam::Mat4,
     view: glam::Mat4,
     projection: glam::Mat4,
-    inverse_view: glam::Mat4,
-    ambient_light_color: glam::Vec4,
-    point_lights: Vec<PointLight>,
-    num_lights: i32,
+    // inverse_view: glam::Mat4,
+    // ambient_light_color: glam::Vec4,
+    // point_lights: Vec<PointLight>,
+    // num_lights: i32,
 }
 
 impl GlobalUBO {
@@ -55,11 +55,11 @@ impl GlobalUBO {
         Self {
             model_matrix,
             view,
-            inverse_view: view.inverse(),
+            // inverse_view: view.inverse(),
             projection,
-            point_lights,
-            ambient_light_color,
-            num_lights,
+            // point_lights,
+            // ambient_light_color,
+            // num_lights,
         }
     }
 }
