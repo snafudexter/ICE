@@ -1,4 +1,5 @@
 use crate::vrt::buffer::VRTBuffer;
+use crate::vrt::camera::VRTCamera;
 use crate::vrt::descriptor_pool::{VRTDescriptorPoolBuilder, VRTDescriptorWriter};
 use crate::vrt::frame_info::GlobalUBO;
 use crate::vrt::layout::VRTDescriptorSetLayoutBuilder;
@@ -15,7 +16,7 @@ use erupt::vk1_0::{
     BufferUsageFlags, DescriptorSet, DescriptorType, DeviceSize, MemoryPropertyFlags,
     ShaderStageFlags, WHOLE_SIZE,
 };
-use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
+use winit::event::{DeviceEvent, ElementState, Event, MouseButton, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
 use super::descriptor_pool::VRTDescriptorPool;
@@ -41,8 +42,9 @@ pub struct VRTApp {
     current_time: std::time::SystemTime,
     game_objects: Vec<GameObject>,
     descriptor_sets: Vec<SmallVec<DescriptorSet>>,
+    camera: VRTCamera,
     global_pool: Rc<VRTDescriptorPool>,
-    //global_descriptor_set_layout: VRTDescriptorSetLayout,
+    frame_time: f32, //global_descriptor_set_layout: VRTDescriptorSetLayout,
 }
 
 impl VRTApp {
@@ -119,6 +121,14 @@ impl VRTApp {
 
         let game_object = GameObject::new(Some(model));
 
+        // let camera: CameraRig = CameraRig::builder()
+        //     .with(Position::new(glam::vec3(0f32, 0f32, 10f32)))
+        //     .with(YawPitch::new())
+        //     .with(Smooth::new_position_rotation(1.0, 1.0))
+        //     .build();
+
+        let camera = VRTCamera::new();
+
         Self {
             aspect_ratio: width as f32 / height as f32,
             device,
@@ -131,12 +141,52 @@ impl VRTApp {
             ubo_buffers,
             descriptor_sets: global_descriptor_sets,
             global_pool,
+            camera,
+            frame_time: 0f32,
         }
     }
 
+    fn process_keyboard_event(&mut self, key: VirtualKeyCode, state: ElementState) {
+        let amount = if state == ElementState::Pressed {
+            0.01
+        } else {
+            0.0
+        };
+
+        let mut move_vec = glam::vec3(0f32, 0f32, 0f32);
+
+        if let (VirtualKeyCode::W, ElementState::Pressed) = (key, state) {
+            move_vec.z = amount;
+        }
+
+        if let (VirtualKeyCode::S, ElementState::Pressed) = (key, state) {
+            move_vec.z = -amount;
+        }
+
+        if let (VirtualKeyCode::A, ElementState::Pressed) = (key, state) {
+            move_vec.x = amount;
+        }
+
+        if let (VirtualKeyCode::D, ElementState::Pressed) = (key, state) {
+            move_vec.x = -amount;
+        }
+
+        self.camera.translate_camera(move_vec, self.frame_time);
+    }
+
     fn process_event(&mut self, event: Event<()>, control_flow: &mut ControlFlow) -> VkResult<()> {
-        self.current_time = std::time::SystemTime::now();
         match event {
+            Event::DeviceEvent {
+                device_id: _,
+                event,
+            } => match event {
+                DeviceEvent::MouseMotion { delta } => {
+                    self.camera
+                        .process_cursor_move_event(delta.0 as f32, delta.1 as f32);
+                }
+                _ => {}
+            },
+
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
                 WindowEvent::KeyboardInput { input, .. } => {
@@ -145,7 +195,26 @@ impl VRTApp {
                     {
                         *control_flow = ControlFlow::Exit;
                     }
+
+                    self.process_keyboard_event(input.virtual_keycode.unwrap(), input.state);
                 }
+
+                // Mouse input
+                WindowEvent::MouseInput {
+                    device_id: _,
+                    state,
+                    button,
+                    ..
+                } => {
+                    if let MouseButton::Left = button {
+                        self.camera.track_mouse(if state == ElementState::Pressed {
+                            true
+                        } else {
+                            false
+                        })
+                    }
+                }
+
                 WindowEvent::Resized(new_inner_size)
                 | WindowEvent::ScaleFactorChanged {
                     new_inner_size: &mut new_inner_size,
@@ -167,8 +236,12 @@ impl VRTApp {
     }
 
     fn draw_frame(&mut self) -> VkResult<()> {
-        let frame_time: u128 = self.current_time.elapsed().unwrap().as_micros();
+        let frame_time: u128 = self.current_time.elapsed().unwrap().as_millis();
         self.current_time = std::time::SystemTime::now();
+
+        self.frame_time = frame_time as f32;
+
+        println!("frame time: {:?}", frame_time);
 
         let command_buffer = self.renderer.begin_frame(&self.window).unwrap();
 
@@ -182,13 +255,7 @@ impl VRTApp {
             &self.descriptor_sets[*frame_index],
         );
 
-        let mut camera: CameraRig = CameraRig::builder()
-            .with(Position::new(glam::vec3(0f32, 0f32, 10f32)))
-            .with(YawPitch::new())
-            .with(Smooth::new_position_rotation(1.0, 1.0))
-            .build();
-
-        let camera_xform = camera.update(frame_time as f32);
+        let camera_xform = self.camera.update(frame_time as f32);
 
         // let view_matrix = glam::Mat4::look_at_lh(
         //     glam::vec3(0.0, 0.0, 10.0),
@@ -201,7 +268,7 @@ impl VRTApp {
             glam::Mat4::look_at_lh(
                 camera_xform.position,
                 camera_xform.forward(),
-                glam::vec3(0f32, -1f32, 0f32),
+                -camera_xform.up(),
             ),
             glam::Mat4::perspective_lh(45.0f32.to_radians(), self.aspect_ratio, 0.01f32, 100.0f32),
             glam::vec4(1.0, 1.0, 0f32, 1.0),
@@ -234,6 +301,7 @@ impl VRTApp {
 
         self.renderer.end_swapchain_render_pass(command_buffer);
         self.renderer.end_frame(&mut self.window, command_buffer);
+
         Ok(())
     }
 

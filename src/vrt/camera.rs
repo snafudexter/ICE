@@ -1,31 +1,45 @@
-use dolly::prelude::*;
+use dolly::{prelude::*, transform::Transform};
 
 pub struct VRTCamera {
     camera: CameraRig,
+    track_mouse: bool,
 }
 
 impl VRTCamera {
-    pub fn new(yaw: f32, pitch: f32) -> Self {
-        let camera: CameraRig = CameraRig::builder()
-            .with(YawPitch::new().yaw_degrees(yaw).pitch_degrees(pitch))
-            .with(Smooth::new_rotation(1.5))
-            .with(Arm::new(dolly::glam::Vec3::Z * 8.0))
+    pub fn new() -> Self {
+        let mut camera = CameraRig::builder()
+            .with(Position::new(glam::vec3(0f32, 0f32, 10f32)))
+            .with(YawPitch::new())
+            .with(Smooth::new_position_rotation(1.0, 1.0))
             .build();
 
-        Self { camera }
+        Self {
+            camera,
+            track_mouse: false,
+        }
     }
 
-    pub fn get_view_matrix(
-        position: glam::Vec3,
-        direction: glam::Vec3,
-        up: glam::Vec3,
-    ) -> glam::Mat4 {
-        let w = glam::Vec3::normalize(direction);
-        let u = glam::Vec3::normalize(glam::Vec3::cross(w, up));
-        let v = glam::Vec3::cross(w, u);
+    pub fn update(&mut self, frame_time: f32) -> Transform<RightHanded> {
+        self.camera.update(frame_time)
+    }
 
-        let mut view_matrix = glam::Mat4::IDENTITY;
+    pub fn track_mouse(&mut self, track_mouse: bool) {
+        self.track_mouse = track_mouse;
+    }
 
-        view_matrix
+    pub fn process_cursor_move_event(&mut self, dx: f32, dy: f32) {
+        if self.track_mouse {
+            self.camera
+                .driver_mut::<YawPitch>()
+                .rotate_yaw_pitch(-0.3 * dx, -0.3 * dy);
+        }
+    }
+
+    pub fn translate_camera(&mut self, move_vec: glam::Vec3, frame_time: f32) {
+        let m_vec = self.camera.final_transform.rotation * move_vec.clamp_length_max(1.0);
+        self.camera
+            .driver_mut::<Position>()
+            .translate(m_vec * frame_time * 10.0);
+        self.camera.update(frame_time);
     }
 }

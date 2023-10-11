@@ -103,7 +103,8 @@ impl VRTBuffer {
                 .size(size)
                 .offset(offset);
 
-            self.device
+            let _ = self
+                .device
                 .get_device_ptr()
                 .flush_mapped_memory_ranges(&[mapped_memory_range]);
         }
