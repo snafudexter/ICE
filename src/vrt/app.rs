@@ -57,7 +57,7 @@ impl VRTApp {
 
         let renderer = VRTRenderer::new(device.clone(), &window).unwrap();
 
-        let model = Model::new(device.get_instance(), device.clone());
+        let model = Model::new(device.clone());
 
         let global_pool = std::rc::Rc::new(
             VRTDescriptorPoolBuilder::new(device.clone())

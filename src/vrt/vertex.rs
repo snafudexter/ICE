@@ -27,23 +27,30 @@ pub struct Vertex {
 }
 
 impl Vertex {
-    pub const VERTICES: [Vertex; 3] = [
+    pub const VERTICES: [Vertex; 4] = [
         Vertex::new(
-            Vec3::from_array([0.0, 2.0, 0.0]),
-            Vec3::from_array([1.0, 1.0, 0.0]),
+            Vec3::from_array([-0.5, -0.5, 0.0]),
+            Vec3::from_array([1.0, 0.0, 0.0]),
             Vec3::from_array([0.0, 0.0, 1.0]),
         ),
         Vertex::new(
-            Vec3::from_array([-1.0, 0.0, 0.0]),
-            Vec3::from_array([1.0, 0.0, 1.0]),
+            Vec3::from_array([0.5, -0.5, 0.0]),
+            Vec3::from_array([0.0, 1.0, 0.0]),
             Vec3::from_array([0.0, 0.0, 1.0]),
         ),
         Vertex::new(
-            Vec3::from_array([1.0, 0.0, 0.0]),
-            Vec3::from_array([1.0, 0.0, 0.0]),
+            Vec3::from_array([0.5, 0.5, 0.0]),
+            Vec3::from_array([0.0, 0.0, 1.0]),
+            Vec3::from_array([0.0, 0.0, 1.0]),
+        ),
+        Vertex::new(
+            Vec3::from_array([-0.5, 0.5, 0.0]),
+            Vec3::from_array([1.0, 1.0, 1.0]),
             Vec3::from_array([0.0, 0.0, 1.0]),
         ),
     ];
+
+    pub const INDICES: [u16; 6] = [0, 1, 2, 2, 3, 0];
 
     pub const fn new(position: Vec3, color: Vec3, normal: Vec3) -> Self {
         Self {
