@@ -147,6 +147,14 @@ impl VRTApp {
 
         let mut move_vec = glam::vec3(0f32, 0f32, 0f32);
 
+        if let (VirtualKeyCode::E, ElementState::Pressed) = (key, state) {
+            move_vec.y = amount;
+        }
+
+        if let (VirtualKeyCode::Q, ElementState::Pressed) = (key, state) {
+            move_vec.y = -amount;
+        }
+
         if let (VirtualKeyCode::W, ElementState::Pressed) = (key, state) {
             move_vec.z = amount;
         }
@@ -240,8 +248,6 @@ impl VRTApp {
         let frame_index = self.renderer.get_frame_index();
 
         let frame_info = FrameInfo::new(
-            *frame_index,
-            frame_time,
             command_buffer,
             &self.game_objects,
             &self.descriptor_sets[*frame_index],

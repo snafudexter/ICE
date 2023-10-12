@@ -65,8 +65,6 @@ impl GlobalUBO {
 }
 
 pub struct FrameInfo<'a> {
-    frame_index: usize,
-    frame_time: u128,
     command_buffer: CommandBuffer,
     game_objects: &'a Vec<GameObject>,
     global_descriptor_set: &'a SmallVec<DescriptorSet>,
@@ -74,15 +72,11 @@ pub struct FrameInfo<'a> {
 
 impl<'a> FrameInfo<'a> {
     pub fn new(
-        frame_index: usize,
-        frame_time: u128,
         command_buffer: CommandBuffer,
         game_objects: &'a Vec<GameObject>,
         global_descriptor_set: &'a SmallVec<DescriptorSet>,
     ) -> Self {
         Self {
-            frame_index,
-            frame_time,
             command_buffer,
             game_objects,
             global_descriptor_set,
