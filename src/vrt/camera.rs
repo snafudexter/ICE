@@ -8,7 +8,7 @@ pub struct VRTCamera {
 impl VRTCamera {
     pub fn new() -> Self {
         let mut camera = CameraRig::builder()
-            .with(Position::new(glam::vec3(0f32, 0f32, 10f32)))
+            .with(Position::new(glam::vec3(0f32, 0f32, 100f32)))
             .with(YawPitch::new())
             .with(Smooth::new_position_rotation(1.0, 1.0))
             .build();
@@ -40,6 +40,5 @@ impl VRTCamera {
         self.camera
             .driver_mut::<Position>()
             .translate(m_vec * frame_time * 10.0);
-        self.camera.update(frame_time);
     }
 }

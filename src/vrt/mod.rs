@@ -15,5 +15,4 @@ pub mod renderer;
 pub mod result;
 pub mod swapchain;
 pub mod sync;
-pub mod vertex;
 pub mod window;

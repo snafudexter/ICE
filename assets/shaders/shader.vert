@@ -21,7 +21,7 @@
 #version 450
 
 layout(location = 0) in vec3 position;
-layout(location = 1) in vec3 color;
+layout(location = 1) in vec2 tex_coord;
 layout(location = 2) in vec3 normal;
 // layout(location = 3) in vec2 uv;
 
@@ -54,5 +54,5 @@ void main() {
     gl_Position = ubo.projection * ubo.view * positionWorld;
     fragNormalWorld = normalize(normal);
     fragPosWorld = positionWorld.xyz;
-    fragColor = color;
+    fragColor = vec3(1.0, 0.0, 1.0);
 }

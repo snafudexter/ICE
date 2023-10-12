@@ -1,15 +1,9 @@
-use std::{ffi::c_void, os::raw::c_int, ptr::copy_nonoverlapping, sync::Arc};
+use std::{ffi::c_void, ptr::copy_nonoverlapping, sync::Arc};
 
-use erupt::{
-    utils::VulkanResult,
-    vk1_0::{
-        Buffer, BufferUsageFlags, DescriptorBufferInfoBuilder, DeviceMemory, DeviceSize,
-        MappedMemoryRange, MappedMemoryRangeBuilder, MemoryMapFlags, MemoryPropertyFlags,
-        WHOLE_SIZE,
-    },
+use erupt::vk1_0::{
+    Buffer, BufferUsageFlags, DescriptorBufferInfoBuilder, DeviceMemory, DeviceSize,
+    MappedMemoryRangeBuilder, MemoryMapFlags, MemoryPropertyFlags, WHOLE_SIZE,
 };
-
-use crate::vrt::vertex::Vertex;
 
 use super::device::VRTDevice;
 

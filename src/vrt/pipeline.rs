@@ -20,7 +20,7 @@ use erupt::vk1_0::{
 use crate::vrt::device::VRTDevice;
 use crate::vrt::result::VkResult;
 
-use super::vertex::Vertex;
+use super::model::ModelVertex;
 
 pub struct PipelineConfigInfo<'a> {
     input_assembly: PipelineInputAssemblyStateCreateInfoBuilder<'a>,
@@ -152,7 +152,7 @@ impl VRTPipeline {
         let rasterizer = PipelineRasterizationStateCreateInfoBuilder::new()
             .depth_clamp_enable(false)
             .rasterizer_discard_enable(false)
-            .polygon_mode(PolygonMode::FILL)
+            .polygon_mode(PolygonMode::LINE)
             .line_width(1.0)
             //.cull_mode(CullModeFlags::BACK)
             .front_face(FrontFace::CLOCKWISE)
@@ -184,8 +184,8 @@ impl VRTPipeline {
             .dynamic_states(&[DynamicState::VIEWPORT, DynamicState::SCISSOR])
             .flags(PipelineDynamicStateCreateFlags::empty());
 
-        let binding_description = Vertex::binding_description();
-        let attribute_descriptions = Vertex::attribute_descriptions();
+        let binding_description = ModelVertex::binding_description();
+        let attribute_descriptions = ModelVertex::attribute_descriptions();
 
         PipelineConfigInfo {
             input_assembly,

@@ -3,7 +3,6 @@ use crate::vrt::camera::VRTCamera;
 use crate::vrt::descriptor_pool::{VRTDescriptorPoolBuilder, VRTDescriptorWriter};
 use crate::vrt::frame_info::GlobalUBO;
 use crate::vrt::layout::VRTDescriptorSetLayoutBuilder;
-use crate::vrt::render_systems::simple_render_system;
 use crate::vrt::swapchain::MAX_FRAMES_IN_FLIGHT;
 use crate::VRTWindow;
 use std::process;
@@ -36,7 +35,6 @@ pub struct VRTApp {
     device: Arc<VRTDevice>,
     window: VRTWindow,
     renderer: VRTRenderer,
-    triangle_render_system: TriangleRenderSystem,
     simple_render_system: SimpleRenderSystem,
     ubo_buffers: Vec<VRTBuffer>,
     current_time: std::time::SystemTime,
@@ -57,7 +55,8 @@ impl VRTApp {
 
         let renderer = VRTRenderer::new(device.clone(), &window).unwrap();
 
-        let model = Model::new(device.clone());
+        let model = Model::new(device.clone(), "./assets/models/sponza/sponza.obj");
+        //let sponza = ObjModel::load_model("./assets/models/sponza/sponza.obj");
 
         let global_pool = std::rc::Rc::new(
             VRTDescriptorPoolBuilder::new(device.clone())
@@ -107,12 +106,6 @@ impl VRTApp {
             )
         }
 
-        let triangle_render_system = TriangleRenderSystem::new(
-            device.clone(),
-            renderer.get_swapchain_render_pass(),
-            global_descriptor_set_layout.get_descriptor_set_layout(),
-        );
-
         let simple_render_system: SimpleRenderSystem = SimpleRenderSystem::new(
             device.clone(),
             renderer.get_swapchain_render_pass(),
@@ -134,7 +127,6 @@ impl VRTApp {
             device,
             window,
             renderer,
-            triangle_render_system,
             game_objects: vec![game_object],
             simple_render_system,
             current_time: std::time::SystemTime::now(), //global_descriptor_set_layout,
@@ -265,12 +257,17 @@ impl VRTApp {
 
         let global_ubo = GlobalUBO::new(
             glam::Mat4::IDENTITY,
-            glam::Mat4::look_at_lh(
+            glam::Mat4::look_at_rh(
                 camera_xform.position,
-                camera_xform.forward(),
+                camera_xform.position + camera_xform.forward(),
                 -camera_xform.up(),
             ),
-            glam::Mat4::perspective_lh(45.0f32.to_radians(), self.aspect_ratio, 0.01f32, 100.0f32),
+            glam::Mat4::perspective_rh(
+                45.0f32.to_radians(),
+                self.aspect_ratio,
+                0.01f32,
+                10000.0f32,
+            ),
             glam::vec4(1.0, 1.0, 0f32, 1.0),
             vec![PointLight::new(
                 glam::Vec3 {
@@ -292,7 +289,7 @@ impl VRTApp {
             0,
         );
 
-        self.ubo_buffers[*frame_index as usize].flush(WHOLE_SIZE, 0);
+        // self.ubo_buffers[*frame_index as usize].flush(WHOLE_SIZE, 0);
 
         self.renderer.begin_swapchain_render_pass(command_buffer);
 
