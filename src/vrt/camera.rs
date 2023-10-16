@@ -8,7 +8,7 @@ pub struct VRTCamera {
 impl VRTCamera {
     pub fn new() -> Self {
         let mut camera = CameraRig::builder()
-            .with(Position::new(glam::vec3(0f32, 0f32, 100f32)))
+            .with(Position::new(glam::vec3(0f32, 0f32, -5f32)))
             .with(YawPitch::new())
             .with(Smooth::new_position_rotation(1.0, 1.0))
             .build();
@@ -31,7 +31,7 @@ impl VRTCamera {
         if self.track_mouse {
             self.camera
                 .driver_mut::<YawPitch>()
-                .rotate_yaw_pitch(-0.3 * dx, -0.3 * dy);
+                .rotate_yaw_pitch(-0.1 * dx, 0.1 * dy);
         }
     }
 

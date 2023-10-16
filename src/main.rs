@@ -12,11 +12,13 @@ fn main() -> color_eyre::Result<()> {
     let event_loop = EventLoop::new();
     let _logger = flexi_logger::Logger::try_with_env_or_str("info")?.start()?;
 
-    let app = Box::leak(Box::new(VRTApp::new(
-        &event_loop,
-        APP_NAME,
-        WINDOW_WIDTH,
-        WINDOW_HEIGHT,
-    )));
-    app.run(event_loop);
+    unsafe {
+        let app = Box::leak(Box::new(VRTApp::new(
+            &event_loop,
+            APP_NAME,
+            WINDOW_WIDTH,
+            WINDOW_HEIGHT,
+        )));
+        app.run(event_loop);
+    }
 }

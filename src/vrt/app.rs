@@ -21,6 +21,7 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use super::descriptor_pool::VRTDescriptorPool;
 use super::device::VRTDevice;
 
+use super::fps_camera::FPSCamera;
 use super::frame_info::{FrameInfo, PointLight};
 use super::game_object::GameObject;
 use super::model::Model;
@@ -40,13 +41,13 @@ pub struct VRTApp {
     current_time: std::time::SystemTime,
     game_objects: Vec<GameObject>,
     descriptor_sets: Vec<SmallVec<DescriptorSet>>,
-    camera: VRTCamera,
+    camera: FPSCamera,
     global_pool: Rc<VRTDescriptorPool>,
-    frame_time: f32, //global_descriptor_set_layout: VRTDescriptorSetLayout,
+    frame_time: u32, //global_descriptor_set_layout: VRTDescriptorSetLayout,
 }
 
 impl VRTApp {
-    pub fn new(event_loop: &EventLoop<()>, app_name: &str, width: u32, height: u32) -> Self {
+    pub unsafe fn new(event_loop: &EventLoop<()>, app_name: &str, width: u32, height: u32) -> Self {
         println!("System OS {:?}", std::env::consts::OS);
         let window = VRTWindow::build_window(&event_loop, app_name, width, height)
             .expect("Cannot create window.");
@@ -55,7 +56,7 @@ impl VRTApp {
 
         let renderer = VRTRenderer::new(device.clone(), &window).unwrap();
 
-        let model = Model::new(device.clone(), "./assets/models/sponza/sponza.obj");
+        let model = Model::new(device.clone(), "./assets/models/smooth_vase.obj");
         //let sponza = ObjModel::load_model("./assets/models/sponza/sponza.obj");
 
         let global_pool = std::rc::Rc::new(
@@ -120,7 +121,7 @@ impl VRTApp {
         //     .with(Smooth::new_position_rotation(1.0, 1.0))
         //     .build();
 
-        let camera = VRTCamera::new();
+        let camera = FPSCamera::new(0.01, 0f32, 0f32, glam::Vec3::NEG_Y);
 
         Self {
             aspect_ratio: width as f32 / height as f32,
@@ -134,59 +135,27 @@ impl VRTApp {
             descriptor_sets: global_descriptor_sets,
             global_pool,
             camera,
-            frame_time: 0f32,
+            frame_time: 0,
         }
     }
 
-    fn process_keyboard_event(&mut self, key: VirtualKeyCode, state: ElementState) {
-        let amount = if state == ElementState::Pressed {
-            0.01
-        } else {
-            0.0
-        };
-
-        let mut move_vec = glam::vec3(0f32, 0f32, 0f32);
-
-        if let (VirtualKeyCode::E, ElementState::Pressed) = (key, state) {
-            move_vec.y = amount;
-        }
-
-        if let (VirtualKeyCode::Q, ElementState::Pressed) = (key, state) {
-            move_vec.y = -amount;
-        }
-
-        if let (VirtualKeyCode::W, ElementState::Pressed) = (key, state) {
-            move_vec.z = amount;
-        }
-
-        if let (VirtualKeyCode::S, ElementState::Pressed) = (key, state) {
-            move_vec.z = -amount;
-        }
-
-        if let (VirtualKeyCode::A, ElementState::Pressed) = (key, state) {
-            move_vec.x = amount;
-        }
-
-        if let (VirtualKeyCode::D, ElementState::Pressed) = (key, state) {
-            move_vec.x = -amount;
-        }
-
-        self.camera.translate_camera(move_vec, self.frame_time);
-    }
-
-    fn process_event(&mut self, event: Event<()>, control_flow: &mut ControlFlow) -> VkResult<()> {
+    fn process_event(
+        &mut self,
+        event: Event<()>,
+        control_flow: &mut ControlFlow,
+        frame_time: u32,
+    ) -> VkResult<()> {
         match event {
-            Event::DeviceEvent {
-                device_id: _,
-                event,
-            } => match event {
-                DeviceEvent::MouseMotion { delta } => {
-                    self.camera
-                        .process_cursor_move_event(delta.0 as f32, delta.1 as f32);
-                }
-                _ => {}
-            },
-
+            // Event::DeviceEvent {
+            //     device_id: _,
+            //     event,
+            // } => match event {
+            //     DeviceEvent::MouseMotion { delta } => {
+            //         self.camera
+            //             .process_cursor_move_event(p);
+            //     }
+            //     _ => {}
+            // },
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
                 WindowEvent::KeyboardInput { input, .. } => {
@@ -196,7 +165,16 @@ impl VRTApp {
                         *control_flow = ControlFlow::Exit;
                     }
 
-                    self.process_keyboard_event(input.virtual_keycode.unwrap(), input.state);
+                    self.camera.process_keyboard_event(
+                        input.virtual_keycode.unwrap(),
+                        input.state,
+                        frame_time,
+                    );
+                    //self.process_keyboard_event(input.virtual_keycode.unwrap(), input.state);
+                }
+
+                WindowEvent::CursorMoved { position, .. } => {
+                    self.camera.process_cursor_move_event(position);
                 }
 
                 // Mouse input
@@ -224,7 +202,7 @@ impl VRTApp {
                 }
                 _ => (),
             },
-            Event::MainEventsCleared => self.draw_frame()?,
+            Event::MainEventsCleared => self.window.get_window_ptr().request_redraw(),
             Event::RedrawRequested(_) => self.draw_frame()?,
             Event::LoopDestroyed => {
                 unsafe { self.device.get_device_ptr().device_wait_idle() }.result()?
@@ -236,12 +214,12 @@ impl VRTApp {
     }
 
     fn draw_frame(&mut self) -> VkResult<()> {
-        let frame_time: u128 = self.current_time.elapsed().unwrap().as_millis();
+        let frame_time = self.current_time.elapsed().unwrap().as_millis();
         self.current_time = std::time::SystemTime::now();
 
-        self.frame_time = frame_time as f32;
+        self.frame_time = frame_time as u32;
 
-        println!("frame time: {:?}", frame_time);
+        // println!("frame time: {:?}", frame_time);
 
         let command_buffer = self.renderer.begin_frame(&self.window).unwrap();
 
@@ -253,38 +231,53 @@ impl VRTApp {
             &self.descriptor_sets[*frame_index],
         );
 
-        let camera_xform = self.camera.update(frame_time as f32);
-
-        // let view_matrix = glam::Mat4::look_at_lh(
-        //     glam::vec3(0.0, 0.0, 10.0),
-        //     glam::vec3(0f32, 0f32, 1.0f32),
-        //     glam::vec3(0f32, -1f32, 0f32),
+        // let correction = glam::mat4(
+        //     glam::vec4(1.0, 0.0, 0.0, 0.0),
+        //     glam::vec4(0.0, -1.0, 0.0, 0.0),
+        //     glam::vec4(0.0, 0.0, 1.0 / 2.0, 0.0),
+        //     glam::vec4(0.0, 0.0, 1.0 / 2.0, 1.0),
         // );
 
-        let global_ubo = GlobalUBO::new(
-            glam::Mat4::IDENTITY,
-            glam::Mat4::look_at_rh(
-                camera_xform.position,
-                camera_xform.position + camera_xform.forward(),
-                -camera_xform.up(),
-            ),
-            glam::Mat4::perspective_rh(
-                45.0f32.to_radians(),
-                self.aspect_ratio,
-                0.01f32,
-                10000.0f32,
-            ),
-            glam::vec4(1.0, 1.0, 0f32, 1.0),
-            vec![PointLight::new(
-                glam::Vec3 {
-                    x: 1.0f32,
-                    y: 1f32,
-                    z: 0.0f32,
-                },
-                glam::vec4(1.0, 1.0, 1.0, 1.0),
-            )],
-            1,
+        let mut perspective = glam::Mat4::perspective_rh(
+            45.0f32.to_radians(),
+            self.aspect_ratio,
+            0.01f32,
+            10000.0f32,
         );
+
+        perspective.y_axis.y *= -1f32;
+
+        let model_matrix = glam::Mat4::from_rotation_y(45f32.to_radians())
+            //* glam::Mat4::from_axis_angle(glam::vec3(0f32, 0f32, 1f32), 180f32.to_radians())
+            * glam::Mat4::from_translation(glam::vec3(0f32, 0f32, -2f32));
+
+        let global_ubo = GlobalUBO::new(
+            model_matrix,
+            glam::Mat4::look_at_rh(
+                *self.camera.get_position(),
+                *self.camera.get_target(),
+                glam::Vec3::NEG_Y,
+            ),
+            perspective,
+            glam::vec4(1.0, 1.0, 1f32, 0.8),
+            PointLight::new(
+                glam::Vec4 {
+                    x: 0.0f32,
+                    y: 10f32,
+                    z: 5.0f32,
+                    w: 1.0f32,
+                },
+                glam::vec4(1.0, 1.0, 1.0, 0.5),
+            ),
+            glam::vec4(
+                self.camera.get_position().x,
+                self.camera.get_position().y,
+                self.camera.get_position().z,
+                1.0,
+            ),
+        );
+
+        //println!("view position {:?}", self.camera.get_position());
 
         self.ubo_buffers[*frame_index as usize].write_to_buffer(
             &global_ubo,
@@ -312,7 +305,7 @@ impl VRTApp {
         event_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Wait;
 
-            if let Err(err) = self.process_event(event, control_flow) {
+            if let Err(err) = self.process_event(event, control_flow, self.frame_time) {
                 eprintln!("Error: {:?}", color_eyre::Report::new(err));
                 process::exit(1);
             }

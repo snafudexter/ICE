@@ -308,7 +308,7 @@ impl VRTDevice {
             })
             .collect::<Vec<_>>();
 
-        let device_features = PhysicalDeviceFeaturesBuilder::new();
+        let device_features = PhysicalDeviceFeaturesBuilder::new().fill_mode_non_solid(true);
 
         let device_extensions: &[*const c_char];
         if std::env::consts::OS.contains("macos") {

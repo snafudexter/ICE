@@ -4,7 +4,6 @@ use crate::vrt::result::{VkError::SwapChainExpired, VkResult};
 use crate::vrt::swapchain::Swapchain;
 use crate::vrt::swapchain::MAX_FRAMES_IN_FLIGHT;
 use crate::VRTWindow;
-use erupt::vk;
 use erupt::vk::ClearColorValue;
 use erupt::vk::ClearValue;
 use erupt::vk::CommandBuffer;
@@ -14,10 +13,11 @@ use erupt::vk::RenderPassBeginInfoBuilder;
 use erupt::vk::{
     CommandBufferAllocateInfoBuilder, CommandBufferBeginInfoBuilder, CommandBufferLevel,
 };
-use erupt::vk1_0::RenderPass;
 use erupt::vk1_0::SubpassContents;
 use erupt::vk1_0::ViewportBuilder;
+use erupt::vk1_0::{ClearDepthStencilValue, RenderPass};
 use erupt::SmallVec;
+use erupt::{vk, InstanceLoader};
 use std::convert::TryFrom;
 use std::sync::Arc;
 
@@ -31,8 +31,13 @@ pub struct VRTRenderer {
 }
 
 impl VRTRenderer {
-    pub fn new(device: Arc<VRTDevice>, window: &VRTWindow) -> VkResult<Self> {
-        let swapchain = Swapchain::new(&device, window.get_extent(), None)?;
+    pub unsafe fn new(device: Arc<VRTDevice>, window: &VRTWindow) -> VkResult<Self> {
+        let swapchain = Swapchain::new(
+            device.get_instance(),
+            device.clone(),
+            window.get_extent(),
+            None,
+        )?;
 
         let command_buffers = Self::create_command_buffers(&device)?;
         Ok(Self {
@@ -53,13 +58,15 @@ impl VRTRenderer {
 
         unsafe {
             self.device.get_device_ptr().device_wait_idle().unwrap();
+            self.swapchain = Swapchain::new(
+                self.device.get_instance(),
+                self.device.clone(),
+                extent,
+                Some(self.swapchain.get_swapchain_khr()),
+            )
+            .unwrap();
         }
-        self.swapchain = Swapchain::new(
-            &self.device,
-            extent,
-            Some(self.swapchain.get_swapchain_khr()),
-        )
-        .unwrap();
+
         Ok(())
     }
 
@@ -167,11 +174,20 @@ impl VRTRenderer {
             return;
         }
 
-        let clear_color = ClearValue {
+        let color_clear_value = ClearValue {
             color: ClearColorValue {
                 float32: [0.0, 0.0, 0.0, 1.0],
             },
         };
+
+        let depth_clear_value = ClearValue {
+            depth_stencil: ClearDepthStencilValue {
+                depth: 1.0,
+                stencil: 0,
+            },
+        };
+
+        let clear_values = &[color_clear_value, depth_clear_value];
 
         let render_pass_info = RenderPassBeginInfoBuilder::new()
             .render_pass(self.swapchain.get_render_pass())
@@ -181,7 +197,7 @@ impl VRTRenderer {
                     .offset(*Offset2DBuilder::new().x(0).y(0))
                     .extent(self.swapchain.get_extent()),
             )
-            .clear_values(std::slice::from_ref(&clear_color));
+            .clear_values(clear_values);
 
         unsafe {
             self.device.get_device_ptr().cmd_begin_render_pass(

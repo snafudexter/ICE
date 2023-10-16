@@ -30,7 +30,7 @@ layout(location = 1) out vec3 fragPosWorld;
 layout(location = 2) out vec3 fragNormalWorld;
 
 struct PointLight {
-    vec3 position; // ignore w
+    vec4 position; // ignore w
     vec4 color; // w is intensity
 };
 
@@ -38,10 +38,9 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
     mat4 model_matrix;
     mat4 view;
     mat4 projection;
-    mat4 inverse_view;
     vec4 ambient_light_color; // w is intensity
-    PointLight point_lights[1];
-    int numLights;
+    vec4 camera_pos_world;
+    PointLight light;
 } ubo;
 
 // layout(push_constant) uniform Push {
@@ -54,5 +53,5 @@ void main() {
     gl_Position = ubo.projection * ubo.view * positionWorld;
     fragNormalWorld = normalize(normal);
     fragPosWorld = positionWorld.xyz;
-    fragColor = vec3(1.0, 0.0, 1.0);
+    fragColor = vec3(1.0, 1.0, 1.0);
 }

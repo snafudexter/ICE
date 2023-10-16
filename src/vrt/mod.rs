@@ -4,6 +4,7 @@ pub mod camera;
 pub mod debug;
 pub mod descriptor_pool;
 pub mod device;
+pub mod fps_camera;
 pub mod frame_info;
 pub mod game_object;
 pub mod layout;

@@ -71,7 +71,6 @@ pub struct MeshObject {
 }
 
 pub struct Model {
-    device: Arc<VRTDevice>,
     vertex_buffer: VRTBuffer,
     index_buffer: VRTBuffer,
     meshes: Vec<MeshObject>,
@@ -79,57 +78,104 @@ pub struct Model {
 
 impl Model {
     pub fn new(device: Arc<VRTDevice>, path: &str) -> Self {
-        let (models, materials) =
-            tobj::load_obj(&path, &tobj::GPU_LOAD_OPTIONS).expect("Failed to OBJ load file");
+        let obj_file = obj::Obj::load(path).unwrap();
+        let positions = obj_file.data.position;
+        let texcoords = obj_file.data.texture;
+        let normals = obj_file.data.normal;
 
-        let mut all_vertices: Vec<ModelVertex> = vec![];
+        let mut model_vertices: Vec<ModelVertex> = vec![];
         let mut indices: Vec<u16> = vec![];
         let mut meshes: Vec<MeshObject> = vec![];
-        let mut unique_vertices = std::collections::HashMap::new();
 
-        for model in &models {
-            let first_index = all_vertices.len() as u32;
-            for index in &model.mesh.indices {
-                let pos_offset = (3 * index) as usize;
-                let tex_coord_offset = (2 * index) as usize;
+        for object in obj_file.data.objects {
+            for group in object.groups {
+                let first_index = indices.len() as u32;
+                let mut indices_count = 0;
+                for obj::SimplePolygon(poly) in group.polys {
+                    for vertex in poly {
+                        let obj::IndexTuple(v, vt, vn) = vertex;
+                        let v_index = v;
+                        let vt_index = vt.unwrap();
+                        let vn_index = vn.unwrap();
 
-                let vertex = ModelVertex {
-                    position: glam::vec3(
-                        model.mesh.positions[pos_offset],
-                        model.mesh.positions[pos_offset + 1],
-                        model.mesh.positions[pos_offset + 2],
-                    ),
-                    tex_coords: glam::vec2(
-                        model.mesh.texcoords[tex_coord_offset],
-                        model.mesh.texcoords[tex_coord_offset + 1],
-                    ),
-                    normal: glam::vec3(
-                        model.mesh.normals[pos_offset],
-                        model.mesh.normals[pos_offset + 1],
-                        model.mesh.normals[pos_offset + 2],
-                    ),
-                };
+                        let vertex = ModelVertex {
+                            position: glam::Vec3::from_array(positions[v_index]),
+                            tex_coords: glam::Vec2::from_array(texcoords[vt_index]),
+                            normal: glam::Vec3::from_array(normals[vn_index]),
+                        };
 
-                if let Some(index) = unique_vertices.get(&vertex) {
-                    indices.push(*index as u16);
-                } else {
-                    let index = all_vertices.len();
-                    unique_vertices.insert(vertex, index);
-                    all_vertices.push(vertex);
-                    indices.push(index as u16);
+                        model_vertices.push(vertex);
+                        indices.push(indices.len() as u16);
+                        indices_count += 1;
+                    }
                 }
+                meshes.push(MeshObject {
+                    first_index,
+                    indices_count: indices_count as u32,
+                });
             }
-            meshes.push(MeshObject {
-                first_index,
-                indices_count: model.mesh.indices.len() as u32,
-            });
         }
 
-        let vertex_buffer = Self::create_vertex_buffer(device.clone(), all_vertices).unwrap();
+        // let (models, materials) = tobj::load_obj(
+        //     &path,
+        //     &tobj::LoadOptions {
+        //         triangulate: true,
+        //         single_index: true,
+        //         ..Default::default()
+        //     },
+        // )
+        // .expect("Failed to OBJ load file");
+
+        // let mut model_vertices: Vec<ModelVertex> = vec![];
+        // let mut indices: Vec<u16> = vec![];
+        // let mut meshes: Vec<MeshObject> = vec![];
+        // let mut unique_vertices = std::collections::HashMap::new();
+
+        // for model in &models {
+        //     let first_index = indices.len() as u32;
+        //     for index in &model.mesh.indices {
+        //         let pos_offset = (3 * index) as usize;
+        //         let tex_coord_offset = (2 * index) as usize;
+
+        //         let vertex = ModelVertex {
+        //             position: glam::vec3(
+        //                 model.mesh.positions[pos_offset],
+        //                 model.mesh.positions[pos_offset + 1],
+        //                 model.mesh.positions[pos_offset + 2],
+        //             ),
+        //             tex_coords: glam::vec2(
+        //                 model.mesh.texcoords[tex_coord_offset],
+        //                 model.mesh.texcoords[tex_coord_offset + 1],
+        //             ),
+        //             normal: glam::vec3(
+        //                 model.mesh.normals[pos_offset],
+        //                 model.mesh.normals[pos_offset + 1],
+        //                 model.mesh.normals[pos_offset + 2],
+        //             ),
+        //         };
+
+        //         // model_vertices.push(vertex);
+        //         // indices.push(indices.len() as u16);
+
+        //         if let Some(on_index) = unique_vertices.get(&vertex) {
+        //             indices.push(*on_index as u16);
+        //         } else {
+        //             let index = model_vertices.len();
+        //             unique_vertices.insert(vertex, index);
+        //             model_vertices.push(vertex);
+        //             indices.push(index as u16);
+        //         }
+        //     }
+        //     meshes.push(MeshObject {
+        //         first_index,
+        //         indices_count: model.mesh.indices.len() as u32,
+        //     });
+        // }
+
+        let vertex_buffer = Self::create_vertex_buffer(device.clone(), model_vertices).unwrap();
         let index_buffer = Self::create_index_buffer(device.clone(), indices).unwrap();
 
         Self {
-            device,
             vertex_buffer,
             index_buffer,
             meshes,

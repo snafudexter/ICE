@@ -4,17 +4,17 @@ use std::io::Read;
 use std::sync::Arc;
 
 use erupt::vk1_0::{
-    BlendFactor, BlendOp, ColorComponentFlags, CommandBuffer, CullModeFlags, DynamicState,
-    FrontFace, GraphicsPipelineCreateInfoBuilder, LogicOp, Pipeline, PipelineBindPoint,
-    PipelineCache, PipelineColorBlendAttachmentStateBuilder,
-    PipelineColorBlendStateCreateInfoBuilder, PipelineDynamicStateCreateFlags,
-    PipelineDynamicStateCreateInfoBuilder, PipelineInputAssemblyStateCreateInfoBuilder,
-    PipelineLayout, PipelineMultisampleStateCreateInfoBuilder,
-    PipelineRasterizationStateCreateInfoBuilder, PipelineShaderStageCreateInfoBuilder,
-    PipelineVertexInputStateCreateInfoBuilder, PipelineViewportStateCreateInfoBuilder, PolygonMode,
-    PrimitiveTopology, RenderPass, SampleCountFlagBits, ShaderModule,
-    ShaderModuleCreateInfoBuilder, ShaderStageFlagBits, VertexInputAttributeDescriptionBuilder,
-    VertexInputBindingDescriptionBuilder,
+    BlendFactor, BlendOp, ColorComponentFlags, CommandBuffer, CompareOp, CullModeFlags,
+    DynamicState, FrontFace, GraphicsPipelineCreateInfoBuilder, LogicOp, Pipeline,
+    PipelineBindPoint, PipelineCache, PipelineColorBlendAttachmentStateBuilder,
+    PipelineColorBlendStateCreateInfoBuilder, PipelineDepthStencilStateCreateInfoBuilder,
+    PipelineDynamicStateCreateFlags, PipelineDynamicStateCreateInfoBuilder,
+    PipelineInputAssemblyStateCreateInfoBuilder, PipelineLayout,
+    PipelineMultisampleStateCreateInfoBuilder, PipelineRasterizationStateCreateInfoBuilder,
+    PipelineShaderStageCreateInfoBuilder, PipelineVertexInputStateCreateInfoBuilder,
+    PipelineViewportStateCreateInfoBuilder, PolygonMode, PrimitiveTopology, RenderPass,
+    SampleCountFlagBits, ShaderModule, ShaderModuleCreateInfoBuilder, ShaderStageFlagBits,
+    VertexInputAttributeDescriptionBuilder, VertexInputBindingDescriptionBuilder,
 };
 
 use crate::vrt::device::VRTDevice;
@@ -82,6 +82,15 @@ impl VRTPipeline {
             .vertex_binding_descriptions(std::slice::from_ref(&config_info.binding_description))
             .vertex_attribute_descriptions(&config_info.attribute_descriptions);
 
+        let depth_stencil_state = PipelineDepthStencilStateCreateInfoBuilder::new()
+            .depth_test_enable(true)
+            .depth_write_enable(true)
+            .depth_compare_op(CompareOp::LESS)
+            .depth_bounds_test_enable(false)
+            .min_depth_bounds(0.0) // Optional.
+            .max_depth_bounds(1.0) //
+            .stencil_test_enable(false);
+
         let pipeline_info = GraphicsPipelineCreateInfoBuilder::new()
             .stages(&_shader_stages)
             .vertex_input_state(&vertex_input_info)
@@ -94,6 +103,7 @@ impl VRTPipeline {
             .dynamic_state(&config_info.dynamic_state_info)
             .render_pass(render_pass)
             .subpass(0)
+            .depth_stencil_state(&depth_stencil_state)
             .base_pipeline_index(-1);
 
         let graphics_pipeline = unsafe {
@@ -152,9 +162,9 @@ impl VRTPipeline {
         let rasterizer = PipelineRasterizationStateCreateInfoBuilder::new()
             .depth_clamp_enable(false)
             .rasterizer_discard_enable(false)
-            .polygon_mode(PolygonMode::LINE)
+            .polygon_mode(PolygonMode::FILL)
             .line_width(1.0)
-            //.cull_mode(CullModeFlags::BACK)
+            .cull_mode(CullModeFlags::BACK)
             .front_face(FrontFace::CLOCKWISE)
             .depth_bias_enable(false);
 

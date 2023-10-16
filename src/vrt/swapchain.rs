@@ -17,6 +17,11 @@ use erupt::vk::{
     SubmitInfoBuilder, SubpassDescriptionBuilder, SurfaceCapabilitiesKHR, SurfaceFormatKHR,
     SurfaceKHR, SwapchainKHR,
 };
+use erupt::vk1_0::{
+    AccessFlags, DeviceMemory, Extent3D, FormatFeatureFlags, ImageCreateInfoBuilder, ImageTiling,
+    ImageType, MemoryAllocateInfoBuilder, MemoryPropertyFlags, MemoryRequirements,
+    SubpassDependencyBuilder, SUBPASS_EXTERNAL,
+};
 use erupt::DeviceLoader;
 use erupt::{InstanceLoader, SmallVec};
 use std::sync::Arc;
@@ -29,6 +34,9 @@ pub struct Swapchain {
     extent: Extent2D,
     image_format: Format,
     images: SmallVec<Image>,
+    depth_image: Image,
+    depth_image_view: ImageView,
+    depth_image_memory: DeviceMemory,
     swapchain: SwapchainKHR,
     render_pass: RenderPass,
     framebuffers: Vec<Framebuffer>,
@@ -44,21 +52,42 @@ pub struct SwapchainSupportDetails {
 }
 
 impl Swapchain {
-    pub fn new(
-        device: &VRTDevice,
+    pub unsafe fn new(
+        instance: &InstanceLoader,
+        device: Arc<VRTDevice>,
         extent: Extent2D,
         old_swapchain: std::option::Option<SwapchainKHR>,
     ) -> VkResult<Self> {
         let (extent, image_format, images, swapchain) =
-            Self::create_swapchain(extent, device, old_swapchain)?;
+            Self::create_swapchain(extent, device.clone(), old_swapchain)?;
 
-        let image_views = Self::create_image_views(device, &images, image_format)?;
+        let image_views = images
+            .iter()
+            .map(|image| {
+                Self::create_image_views(
+                    device.clone(),
+                    &image,
+                    image_format,
+                    ImageAspectFlags::COLOR,
+                )
+                .unwrap()
+            })
+            .collect();
 
-        let render_pass = Self::create_render_pass(&device.get_device_ptr(), image_format)?;
+        let render_pass = Self::create_render_pass(instance, device.clone(), image_format)?;
 
-        let framebuffers = Self::create_framebuffers(device, &image_views, &extent, render_pass)?;
+        let (depth_image, depth_image_memory, depth_image_view) =
+            Self::create_depth_objects(instance, device.clone(), &extent).unwrap();
 
-        let sync = Self::create_sync_objects(device, &images)?;
+        let framebuffers = Self::create_framebuffers(
+            device.clone(),
+            &image_views,
+            &depth_image_view,
+            &extent,
+            render_pass,
+        )?;
+
+        let sync = Self::create_sync_objects(device.clone(), &images)?;
 
         Ok(Self {
             swapchain,
@@ -67,10 +96,150 @@ impl Swapchain {
             image_format,
             sync,
             framebuffers,
+            depth_image,
+            depth_image_memory,
+            depth_image_view,
             render_pass,
             image_views,
             device: device.get_device_ptr(),
         })
+    }
+
+    unsafe fn create_depth_objects(
+        instance: &InstanceLoader,
+        device: Arc<VRTDevice>,
+        extent: &Extent2D,
+    ) -> VkResult<(Image, DeviceMemory, ImageView)> {
+        let format = Self::get_depth_format(instance, device.clone()).unwrap();
+
+        let (depth_image, depth_image_memory) = Self::create_image(
+            instance,
+            device.clone(),
+            extent.width,
+            extent.height,
+            format,
+            ImageTiling::OPTIMAL,
+            ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
+            MemoryPropertyFlags::DEVICE_LOCAL,
+        )
+        .unwrap();
+
+        let depth_image_view = Self::create_image_views(
+            device.clone(),
+            &depth_image,
+            format,
+            ImageAspectFlags::DEPTH,
+        )
+        .unwrap();
+
+        Ok((depth_image, depth_image_memory, depth_image_view))
+    }
+
+    unsafe fn create_image(
+        instance: &InstanceLoader,
+        device: Arc<VRTDevice>,
+        width: u32,
+        height: u32,
+        format: Format,
+        tiling: ImageTiling,
+        usage: ImageUsageFlags,
+        properties: MemoryPropertyFlags,
+    ) -> VkResult<(Image, DeviceMemory)> {
+        let info = ImageCreateInfoBuilder::new()
+            .image_type(ImageType::_2D)
+            .extent(Extent3D {
+                width,
+                height,
+                depth: 1,
+            })
+            .mip_levels(1)
+            .array_layers(1)
+            .format(format)
+            .tiling(tiling)
+            .initial_layout(ImageLayout::UNDEFINED)
+            .usage(usage)
+            .sharing_mode(SharingMode::EXCLUSIVE)
+            .samples(SampleCountFlagBits::_1);
+
+        let image = device.get_device_ptr().create_image(&info, None).unwrap();
+
+        let requirements = device.get_device_ptr().get_image_memory_requirements(image);
+
+        let info = MemoryAllocateInfoBuilder::new()
+            .allocation_size(requirements.size)
+            .memory_type_index(
+                Self::get_memory_type_index(instance, device.clone(), properties, requirements)
+                    .unwrap(),
+            );
+
+        let image_memory = device
+            .clone()
+            .get_device_ptr()
+            .allocate_memory(&info, None)
+            .unwrap();
+
+        device
+            .get_device_ptr()
+            .bind_image_memory(image, image_memory, 0);
+        Ok((image, image_memory))
+    }
+
+    unsafe fn get_memory_type_index(
+        instance: &InstanceLoader,
+        device: Arc<VRTDevice>,
+        properties: MemoryPropertyFlags,
+        requirements: MemoryRequirements,
+    ) -> VkResult<u32> {
+        let memory = instance.get_physical_device_memory_properties(device.get_physical_device());
+        Ok((0..memory.memory_type_count)
+            .find(|i| {
+                let suitable = (requirements.memory_type_bits & (1 << i)) != 0;
+                let memory_type = memory.memory_types[*i as usize];
+                suitable && memory_type.property_flags.contains(properties)
+            })
+            .unwrap())
+    }
+
+    unsafe fn get_depth_format(
+        instance: &InstanceLoader,
+        device: Arc<VRTDevice>,
+    ) -> VkResult<Format> {
+        let candidates = &[
+            Format::D32_SFLOAT,
+            Format::D32_SFLOAT_S8_UINT,
+            Format::D24_UNORM_S8_UINT,
+        ];
+
+        Self::get_supported_format(
+            instance,
+            device,
+            candidates,
+            ImageTiling::OPTIMAL,
+            FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT,
+        )
+    }
+
+    unsafe fn get_supported_format(
+        instance: &InstanceLoader,
+        device: Arc<VRTDevice>,
+        candidates: &[Format],
+        tiling: ImageTiling,
+        features: FormatFeatureFlags,
+    ) -> VkResult<Format> {
+        Ok(candidates
+            .iter()
+            .cloned()
+            .find(|f| {
+                let properties = instance
+                    .get_physical_device_format_properties(device.get_physical_device(), *f);
+
+                match tiling {
+                    ImageTiling::LINEAR => properties.linear_tiling_features.contains(features),
+                    ImageTiling::OPTIMAL => properties.optimal_tiling_features.contains(features),
+                    _ => false,
+                }
+            })
+            .unwrap())
     }
 
     pub fn acquire_next_image(&self) -> Result<u32, erupt::vk1_0::Result> {
@@ -167,7 +336,7 @@ impl Swapchain {
 
     fn create_swapchain(
         extent: Extent2D,
-        device: &VRTDevice,
+        device: Arc<VRTDevice>,
         old_swapchain: std::option::Option<SwapchainKHR>,
     ) -> VkResult<(Extent2D, Format, SmallVec<Image>, SwapchainKHR)> {
         let swapchain_support = device.get_swapchain_support()?;
@@ -233,43 +402,44 @@ impl Swapchain {
     }
 
     fn create_image_views(
-        device: &VRTDevice,
-        images: &[Image],
+        device: Arc<VRTDevice>,
+        image: &Image,
         image_format: Format,
-    ) -> VkResult<Vec<ImageView>> {
-        images
-            .iter()
-            .map(|image| {
-                let create_info = ImageViewCreateInfoBuilder::new()
-                    .image(*image)
-                    .view_type(ImageViewType::_2D)
-                    .format(image_format)
-                    .components(
-                        *ComponentMappingBuilder::new()
-                            .r(ComponentSwizzle::IDENTITY)
-                            .g(ComponentSwizzle::IDENTITY)
-                            .b(ComponentSwizzle::IDENTITY)
-                            .a(ComponentSwizzle::IDENTITY),
-                    )
-                    .subresource_range(
-                        *ImageSubresourceRangeBuilder::new()
-                            .aspect_mask(ImageAspectFlags::COLOR)
-                            .base_mip_level(0)
-                            .level_count(1)
-                            .base_array_layer(0)
-                            .layer_count(1),
-                    );
-                unsafe {
-                    device
-                        .get_device_ptr()
-                        .create_image_view(&create_info, None)
-                }
-                .map_err(VkError::Vk)
-            })
-            .collect()
+        aspects: ImageAspectFlags,
+    ) -> VkResult<ImageView> {
+        let create_info = ImageViewCreateInfoBuilder::new()
+            .image(*image)
+            .view_type(ImageViewType::_2D)
+            .format(image_format)
+            .components(
+                *ComponentMappingBuilder::new()
+                    .r(ComponentSwizzle::IDENTITY)
+                    .g(ComponentSwizzle::IDENTITY)
+                    .b(ComponentSwizzle::IDENTITY)
+                    .a(ComponentSwizzle::IDENTITY),
+            )
+            .subresource_range(
+                *ImageSubresourceRangeBuilder::new()
+                    .aspect_mask(ImageAspectFlags::COLOR)
+                    .base_mip_level(0)
+                    .level_count(1)
+                    .base_array_layer(0)
+                    .aspect_mask(aspects)
+                    .layer_count(1),
+            );
+        unsafe {
+            device
+                .get_device_ptr()
+                .create_image_view(&create_info, None)
+        }
+        .map_err(VkError::Vk)
     }
 
-    fn create_render_pass(device: &DeviceLoader, image_format: Format) -> VkResult<RenderPass> {
+    unsafe fn create_render_pass(
+        instance: &InstanceLoader,
+        device: Arc<VRTDevice>,
+        image_format: Format,
+    ) -> VkResult<RenderPass> {
         let color_attachment = AttachmentDescriptionBuilder::new()
             .format(image_format)
             .samples(SampleCountFlagBits::_1)
@@ -284,29 +454,70 @@ impl Swapchain {
             .attachment(0)
             .layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
 
+        let depth_stencil_attachment = AttachmentDescriptionBuilder::new()
+            .format(Self::get_depth_format(instance, device.clone()).unwrap())
+            .samples(SampleCountFlagBits::_1)
+            .load_op(AttachmentLoadOp::CLEAR)
+            .store_op(AttachmentStoreOp::DONT_CARE)
+            .stencil_load_op(AttachmentLoadOp::DONT_CARE)
+            .stencil_store_op(AttachmentStoreOp::DONT_CARE)
+            .initial_layout(ImageLayout::UNDEFINED)
+            .final_layout(ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+        let depth_stencil_attachment_ref = AttachmentReferenceBuilder::new()
+            .attachment(1)
+            .layout(ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+        let dependency = SubpassDependencyBuilder::new()
+            .src_subpass(SUBPASS_EXTERNAL)
+            .dst_subpass(0)
+            .src_stage_mask(
+                PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
+                    | PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+            )
+            .src_access_mask(AccessFlags::empty())
+            .dst_stage_mask(
+                PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
+                    | PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+            )
+            .dst_access_mask(
+                AccessFlags::COLOR_ATTACHMENT_WRITE | AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
+            );
+
         let subpass = SubpassDescriptionBuilder::new()
             .pipeline_bind_point(PipelineBindPoint::GRAPHICS)
-            .color_attachments(std::slice::from_ref(&color_attachment_ref));
+            .color_attachments(std::slice::from_ref(&color_attachment_ref))
+            .depth_stencil_attachment(&depth_stencil_attachment_ref);
 
+        let binding = [color_attachment, depth_stencil_attachment];
+        let dependencies = [dependency];
         let render_pass_info = RenderPassCreateInfoBuilder::new()
-            .attachments(std::slice::from_ref(&color_attachment))
-            .subpasses(std::slice::from_ref(&subpass));
+            .attachments(&binding)
+            .subpasses(std::slice::from_ref(&subpass))
+            .dependencies(&dependencies);
 
-        Ok(unsafe { device.create_render_pass(&render_pass_info, None) }.result()?)
+        Ok(unsafe {
+            device
+                .get_device_ptr()
+                .create_render_pass(&render_pass_info, None)
+        }
+        .result()?)
     }
 
     fn create_framebuffers(
-        device: &VRTDevice,
+        device: Arc<VRTDevice>,
         image_views: &Vec<ImageView>,
+        depth_image_view: &ImageView,
         extent: &Extent2D,
         render_pass: RenderPass,
     ) -> VkResult<Vec<Framebuffer>> {
         image_views
             .iter()
             .map(|image_view| {
+                let binding = [*image_view, *depth_image_view];
                 let framebuffer_info = FramebufferCreateInfoBuilder::new()
                     .render_pass(render_pass)
-                    .attachments(std::slice::from_ref(image_view))
+                    .attachments(&binding)
                     .width(extent.width)
                     .height(extent.height)
                     .layers(1);
@@ -321,7 +532,7 @@ impl Swapchain {
     }
 
     fn create_sync_objects(
-        device: &VRTDevice,
+        device: Arc<VRTDevice>,
         images: &[Image],
     ) -> VkResult<SyncObjects<MAX_FRAMES_IN_FLIGHT>> {
         fn create_objects<T>(
@@ -414,6 +625,12 @@ impl Swapchain {
 impl Drop for Swapchain {
     fn drop(&mut self) {
         unsafe {
+            self.device.destroy_image_view(self.depth_image_view, None);
+
+            self.device.free_memory(self.depth_image_memory, None);
+
+            self.device.destroy_image(self.depth_image, None);
+
             for image_view in &self.image_views {
                 self.device.destroy_image_view(*image_view, None);
             }
