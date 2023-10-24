@@ -165,7 +165,7 @@ impl VRTPipeline {
             .polygon_mode(PolygonMode::FILL)
             .line_width(1.0)
             .cull_mode(CullModeFlags::BACK)
-            .front_face(FrontFace::CLOCKWISE)
+            .front_face(FrontFace::COUNTER_CLOCKWISE)
             .depth_bias_enable(false);
 
         let multisampling = PipelineMultisampleStateCreateInfoBuilder::new()

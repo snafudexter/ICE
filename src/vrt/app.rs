@@ -4,7 +4,7 @@ use crate::vrt::descriptor_pool::{VRTDescriptorPoolBuilder, VRTDescriptorWriter}
 use crate::vrt::frame_info::GlobalUBO;
 use crate::vrt::layout::VRTDescriptorSetLayoutBuilder;
 use crate::vrt::swapchain::MAX_FRAMES_IN_FLIGHT;
-use crate::VRTWindow;
+use crate::{VRTWindow, WINDOW_HEIGHT, WINDOW_WIDTH};
 use std::process;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -15,6 +15,7 @@ use erupt::vk1_0::{
     BufferUsageFlags, DescriptorSet, DescriptorType, DeviceSize, MemoryPropertyFlags,
     ShaderStageFlags, WHOLE_SIZE,
 };
+use winit::dpi::PhysicalPosition;
 use winit::event::{DeviceEvent, ElementState, Event, MouseButton, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
@@ -57,6 +58,7 @@ impl VRTApp {
         let renderer = VRTRenderer::new(device.clone(), &window).unwrap();
 
         let model = Model::new(device.clone(), "./assets/models/smooth_vase.obj");
+        let ground = Model::new(device.clone(), "./assets/models/quad.obj");
         //let sponza = ObjModel::load_model("./assets/models/sponza/sponza.obj");
 
         let global_pool = std::rc::Rc::new(
@@ -113,22 +115,28 @@ impl VRTApp {
             global_descriptor_set_layout.get_descriptor_set_layout(),
         );
 
-        let game_object = GameObject::new(Some(model));
-
         // let camera: CameraRig = CameraRig::builder()
         //     .with(Position::new(glam::vec3(0f32, 0f32, 10f32)))
         //     .with(YawPitch::new())
         //     .with(Smooth::new_position_rotation(1.0, 1.0))
         //     .build();
 
-        let camera = FPSCamera::new(0.01, 0f32, 0f32, glam::Vec3::NEG_Y);
+        let camera = FPSCamera::new(
+            0.01,
+            0.01,
+            glam::vec3(0f32, 0f32, 5.0),
+            glam::Vec3::ZERO,
+            glam::Vec3::NEG_Y,
+        );
+
+        window.get_window_ptr().set_cursor_visible(false);
 
         Self {
             aspect_ratio: width as f32 / height as f32,
             device,
             window,
             renderer,
-            game_objects: vec![game_object],
+            game_objects: vec![GameObject::new(Some(model)), GameObject::new(Some(ground))],
             simple_render_system,
             current_time: std::time::SystemTime::now(), //global_descriptor_set_layout,
             ubo_buffers,
@@ -146,16 +154,6 @@ impl VRTApp {
         frame_time: u32,
     ) -> VkResult<()> {
         match event {
-            // Event::DeviceEvent {
-            //     device_id: _,
-            //     event,
-            // } => match event {
-            //     DeviceEvent::MouseMotion { delta } => {
-            //         self.camera
-            //             .process_cursor_move_event(p);
-            //     }
-            //     _ => {}
-            // },
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
                 WindowEvent::KeyboardInput { input, .. } => {
@@ -170,11 +168,21 @@ impl VRTApp {
                         input.state,
                         frame_time,
                     );
-                    //self.process_keyboard_event(input.virtual_keycode.unwrap(), input.state);
                 }
 
                 WindowEvent::CursorMoved { position, .. } => {
-                    self.camera.process_cursor_move_event(position);
+                    self.camera.rotate(
+                        WINDOW_WIDTH as f32 / 2f32 - position.x as f32,
+                        WINDOW_HEIGHT as f32 / 2f32 - position.y as f32,
+                    );
+
+                    self.window
+                        .get_window_ptr()
+                        .set_cursor_position(PhysicalPosition {
+                            x: WINDOW_WIDTH as f32 / 2f32,
+                            y: WINDOW_HEIGHT as f32 / 2f32,
+                        })
+                        .unwrap();
                 }
 
                 // Mouse input
@@ -231,25 +239,14 @@ impl VRTApp {
             &self.descriptor_sets[*frame_index],
         );
 
-        // let correction = glam::mat4(
-        //     glam::vec4(1.0, 0.0, 0.0, 0.0),
-        //     glam::vec4(0.0, -1.0, 0.0, 0.0),
-        //     glam::vec4(0.0, 0.0, 1.0 / 2.0, 0.0),
-        //     glam::vec4(0.0, 0.0, 1.0 / 2.0, 1.0),
-        // );
-
-        let mut perspective = glam::Mat4::perspective_rh(
-            45.0f32.to_radians(),
-            self.aspect_ratio,
-            0.01f32,
-            10000.0f32,
-        );
+        let mut perspective =
+            glam::Mat4::perspective_rh(45.0f32.to_radians(), self.aspect_ratio, 0.01f32, 100.0f32);
 
         perspective.y_axis.y *= -1f32;
 
-        let model_matrix = glam::Mat4::from_rotation_y(45f32.to_radians())
-            //* glam::Mat4::from_axis_angle(glam::vec3(0f32, 0f32, 1f32), 180f32.to_radians())
-            * glam::Mat4::from_translation(glam::vec3(0f32, 0f32, -2f32));
+        let model_matrix = //glam::Mat4::from_rotation_y(45f32.to_radians())
+            //glam::Mat4::from_axis_angle(glam::vec3(0f32, 0f32, 1f32), 180f32.to_radians()) *
+            glam::Mat4::from_translation(glam::vec3(0f32, 0f32, 0f32));
 
         let global_ubo = GlobalUBO::new(
             model_matrix,
@@ -259,15 +256,15 @@ impl VRTApp {
                 glam::Vec3::NEG_Y,
             ),
             perspective,
-            glam::vec4(1.0, 1.0, 1f32, 0.8),
+            glam::vec4(1.0, 1.0, 1f32, 0.5),
             PointLight::new(
                 glam::Vec4 {
-                    x: 0.0f32,
+                    x: 2.0f32,
                     y: 10f32,
                     z: 5.0f32,
                     w: 1.0f32,
                 },
-                glam::vec4(1.0, 1.0, 1.0, 0.5),
+                glam::vec4(1.0, 1.0, 1.0, 1.0),
             ),
             glam::vec4(
                 self.camera.get_position().x,

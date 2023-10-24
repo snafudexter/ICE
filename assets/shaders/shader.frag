@@ -28,7 +28,7 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
 void main() {
     vec3 diffuseLight = ubo.ambient_light_color.xyz * ubo.ambient_light_color.w;
     vec3 specularLight = vec3(0.0);
-    vec3 surfaceNormal = normalize(fragNormalWorld);
+    vec3 surfaceNormal = fragNormalWorld;
 
     vec3 cameraPosWorld = ubo.camera_pos_world.xyz;
     vec3 viewDirection = normalize(cameraPosWorld - fragPosWorld);
@@ -40,7 +40,7 @@ void main() {
     float cosAngIncidence = max(dot(directionToLight, surfaceNormal), 0);
     vec3 intensity = ubo.light.color.xyz * ubo.light.color.w * attenuation;
 
-    diffuseLight += intensity * cosAngIncidence; // = diff * ubo.light.color.xyz;
+    diffuseLight += cosAngIncidence * ubo.light.color.xyz;
 
     // specular lighting
     vec3 halfAngle = normalize(directionToLight + viewDirection);
