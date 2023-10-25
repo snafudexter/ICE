@@ -68,6 +68,7 @@ impl ModelVertex {
 pub struct MeshObject {
     pub first_index: u32, // LOL name; first index in index buffer
     pub indices_count: u32,
+    pub vertex_offset: u32,
 }
 
 pub struct Model {
@@ -91,6 +92,7 @@ impl Model {
             for group in object.groups {
                 let first_index = indices.len() as u32;
                 let mut indices_count = 0;
+                let mut vertex_offset = 0;
                 for obj::SimplePolygon(poly) in group.polys {
                     for vertex in poly {
                         let obj::IndexTuple(v, vt, vn) = vertex;
@@ -111,6 +113,7 @@ impl Model {
                 }
                 meshes.push(MeshObject {
                     first_index,
+                    vertex_offset: model_vertices.len() as u32,
                     indices_count: indices_count as u32,
                 });
             }
@@ -208,7 +211,7 @@ impl Model {
                     mesh.indices_count as u32,
                     1,
                     mesh.first_index,
-                    0,
+                    mesh.vertex_offset as i32,
                     0,
                 );
             }

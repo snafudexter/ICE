@@ -59,7 +59,7 @@ impl VRTApp {
 
         let model = Model::new(device.clone(), "./assets/models/smooth_vase.obj");
         let ground = Model::new(device.clone(), "./assets/models/quad.obj");
-        //let sponza = ObjModel::load_model("./assets/models/sponza/sponza.obj");
+        let sponza = Model::new(device.clone(), "./assets/models/sponza/sponza.obj");
 
         let global_pool = std::rc::Rc::new(
             VRTDescriptorPoolBuilder::new(device.clone())
@@ -124,7 +124,7 @@ impl VRTApp {
         let camera = FPSCamera::new(
             0.01,
             0.01,
-            glam::vec3(0f32, 0f32, 5.0),
+            glam::vec3(0f32, 20f32, 70.0),
             glam::Vec3::ZERO,
             glam::Vec3::NEG_Y,
         );
@@ -136,7 +136,11 @@ impl VRTApp {
             device,
             window,
             renderer,
-            game_objects: vec![GameObject::new(Some(model)), GameObject::new(Some(ground))],
+            game_objects: vec![
+                // GameObject::new(Some(model)),
+                // GameObject::new(Some(ground)),
+                GameObject::new(Some(sponza)),
+            ],
             simple_render_system,
             current_time: std::time::SystemTime::now(), //global_descriptor_set_layout,
             ubo_buffers,
@@ -239,21 +243,21 @@ impl VRTApp {
             &self.descriptor_sets[*frame_index],
         );
 
-        let mut perspective =
+        let perspective =
             glam::Mat4::perspective_rh(45.0f32.to_radians(), self.aspect_ratio, 0.01f32, 100.0f32);
 
-        perspective.y_axis.y *= -1f32;
+        // perspective.y_axis.y *= -1f32;
 
-        let model_matrix = //glam::Mat4::from_rotation_y(45f32.to_radians())
-            //glam::Mat4::from_axis_angle(glam::vec3(0f32, 0f32, 1f32), 180f32.to_radians()) *
-            glam::Mat4::from_translation(glam::vec3(0f32, 0f32, 0f32));
+        let model_matrix = glam::Mat4::from_scale(glam::Vec3::ONE * 0.01)*
+            // glam::Mat4::from_axis_angle(glam::vec3(0f32, 0f32, 1f32), 180f32.to_radians())
+                 glam::Mat4::from_translation(glam::vec3(0f32, 0f32, 0f32));
 
         let global_ubo = GlobalUBO::new(
             model_matrix,
             glam::Mat4::look_at_rh(
                 *self.camera.get_position(),
                 *self.camera.get_target(),
-                glam::Vec3::NEG_Y,
+                glam::Vec3::Y,
             ),
             perspective,
             glam::vec4(1.0, 1.0, 1f32, 0.5),

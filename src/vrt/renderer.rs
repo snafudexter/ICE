@@ -208,9 +208,9 @@ impl VRTRenderer {
 
             let viewport = ViewportBuilder::new()
                 .x(0.0)
-                .y(0.0)
+                .y(self.swapchain.get_extent().height as f32)
                 .width(self.swapchain.get_extent().width as f32)
-                .height(self.swapchain.get_extent().height as f32)
+                .height(-(self.swapchain.get_extent().height as f32))
                 .min_depth(0.0)
                 .max_depth(1.0);
 

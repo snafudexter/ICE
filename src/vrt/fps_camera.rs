@@ -19,9 +19,6 @@ pub struct FPSCamera {
     up: glam::Vec3,
     WORLD_UP: glam::Vec3,
     right: glam::Vec3,
-    fov: f32,
-    last_x: f64,
-    last_y: f64,
 }
 
 impl FPSCamera {
@@ -40,34 +37,30 @@ impl FPSCamera {
 
         let yaw = look_dir.x.atan2(look_dir.z) + PI;
 
-        Self {
+        let mut _self = Self {
             mouse_sensitivity,
             sensitivity,
             yaw,
             pitch,
-            target: glam::Vec3::ONE,
+            target: glam::Vec3::ZERO,
             track_mouse: false,
             position,
             up,
             right: glam::Vec3::X,
-            last_x: 400f64,
-            last_y: 300f64,
-            fov: DEF_FOV,
             look: glam::Vec3::NEG_Z,
-            WORLD_UP: glam::Vec3::NEG_Y,
-        }
+            WORLD_UP: glam::Vec3::Y,
+        };
+        _self.update_camera_vectors();
+
+        _self
     }
 
-    pub fn set_position(&mut self, position: glam::Vec3) {
-        self.position = position;
-    }
-
-    pub fn move_camera(&mut self, offset: glam::Vec3) {
+    fn move_camera(&mut self, offset: glam::Vec3) {
         self.position += offset;
         self.update_camera_vectors();
     }
 
-    fn update_camera_vectors(&mut self) {
+    pub fn update_camera_vectors(&mut self) {
         let mut look: glam::Vec3 = glam::Vec3::ZERO;
         look.x = self.pitch.cos() * self.yaw.sin();
         look.y = self.pitch.sin();
