@@ -59,7 +59,7 @@ impl VRTApp {
 
         let model = Model::new(device.clone(), "./assets/models/smooth_vase.obj");
         let ground = Model::new(device.clone(), "./assets/models/quad.obj");
-        let sponza = Model::new(device.clone(), "./assets/models/sponza/sponza.obj");
+        let sponza = Model::new(device.clone(), "./assets/models/car.obj");
 
         let global_pool = std::rc::Rc::new(
             VRTDescriptorPoolBuilder::new(device.clone())
@@ -124,7 +124,7 @@ impl VRTApp {
         let camera = FPSCamera::new(
             0.01,
             0.01,
-            glam::vec3(0f32, 20f32, 70.0),
+            glam::vec3(0f32, 20f32, 20.0),
             glam::Vec3::ZERO,
             glam::Vec3::NEG_Y,
         );
@@ -248,7 +248,7 @@ impl VRTApp {
 
         // perspective.y_axis.y *= -1f32;
 
-        let model_matrix = glam::Mat4::from_scale(glam::Vec3::ONE * 0.01)*
+        let model_matrix = glam::Mat4::from_scale(glam::Vec3::ONE * 2f32)*
             // glam::Mat4::from_axis_angle(glam::vec3(0f32, 0f32, 1f32), 180f32.to_radians())
                  glam::Mat4::from_translation(glam::vec3(0f32, 0f32, 0f32));
 

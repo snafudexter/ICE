@@ -87,12 +87,13 @@ impl Model {
         let mut model_vertices: Vec<ModelVertex> = vec![];
         let mut indices: Vec<u16> = vec![];
         let mut meshes: Vec<MeshObject> = vec![];
+        let mut unique_vertices = std::collections::HashMap::new();
 
         for object in obj_file.data.objects {
             for group in object.groups {
                 let first_index = indices.len() as u32;
                 let mut indices_count = 0;
-                let mut vertex_offset = 0;
+                let vertex_offset = model_vertices.len();
                 for obj::SimplePolygon(poly) in group.polys {
                     for vertex in poly {
                         let obj::IndexTuple(v, vt, vn) = vertex;
@@ -106,14 +107,22 @@ impl Model {
                             normal: glam::Vec3::from_array(normals[vn_index]),
                         };
 
-                        model_vertices.push(vertex);
-                        indices.push(indices.len() as u16);
+                        if let Some(on_index) = unique_vertices.get(&vertex) {
+                            indices.push(*on_index as u16);
+                        } else {
+                            let index = model_vertices.len();
+                            unique_vertices.insert(vertex, index);
+                            model_vertices.push(vertex);
+                            indices.push(index as u16);
+                        }
+                        // model_vertices.push(vertex);
+                        // indices.push(indices.len() as u16);
                         indices_count += 1;
                     }
                 }
                 meshes.push(MeshObject {
                     first_index,
-                    vertex_offset: model_vertices.len() as u32,
+                    vertex_offset: vertex_offset as u32,
                     indices_count: indices_count as u32,
                 });
             }
@@ -211,7 +220,7 @@ impl Model {
                     mesh.indices_count as u32,
                     1,
                     mesh.first_index,
-                    mesh.vertex_offset as i32,
+                    0,
                     0,
                 );
             }
