@@ -57,9 +57,10 @@ impl VRTApp {
 
         let renderer = VRTRenderer::new(device.clone(), &window).unwrap();
 
-        let model = Model::new(device.clone(), "./assets/models/smooth_vase.obj");
-        let ground = Model::new(device.clone(), "./assets/models/quad.obj");
-        let sponza = Model::new(device.clone(), "./assets/models/car.obj");
+        // let model = Model::new(device.clone(), "./assets/models/smooth_vase.obj");
+        // let ground = Model::new(device.clone(), "./assets/models/quad.obj");
+        // let sponza = Model::new(device.clone(), "./assets/models/sponza/sponza.obj");
+        let shapes = Model::new(device.clone(), "./assets/models/shapes.obj");
 
         let global_pool = std::rc::Rc::new(
             VRTDescriptorPoolBuilder::new(device.clone())
@@ -138,8 +139,8 @@ impl VRTApp {
             renderer,
             game_objects: vec![
                 // GameObject::new(Some(model)),
-                // GameObject::new(Some(ground)),
-                GameObject::new(Some(sponza)),
+                // GameObject::new(Some(sponza)),
+                GameObject::new(Some(shapes)),
             ],
             simple_render_system,
             current_time: std::time::SystemTime::now(), //global_descriptor_set_layout,
@@ -260,7 +261,7 @@ impl VRTApp {
                 glam::Vec3::Y,
             ),
             perspective,
-            glam::vec4(1.0, 1.0, 1f32, 0.5),
+            glam::vec4(1.0, 1.0, 1f32, 0.1),
             PointLight::new(
                 glam::Vec4 {
                     x: 2.0f32,
@@ -268,7 +269,7 @@ impl VRTApp {
                     z: 5.0f32,
                     w: 1.0f32,
                 },
-                glam::vec4(1.0, 1.0, 1.0, 1.0),
+                glam::vec4(0.5, 1.0, 1.0, 1.0),
             ),
             glam::vec4(
                 self.camera.get_position().x,

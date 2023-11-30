@@ -26,7 +26,7 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
 // } push;
 
 void main() {
-    vec3 diffuseLight = ubo.ambient_light_color.xyz * ubo.ambient_light_color.w;
+    vec3 ambientColor = ubo.ambient_light_color.w * ubo.ambient_light_color.xyz;
     vec3 specularLight = vec3(0.0);
     vec3 surfaceNormal = fragNormalWorld;
 
@@ -40,7 +40,7 @@ void main() {
     float cosAngIncidence = max(dot(directionToLight, surfaceNormal), 0);
     vec3 intensity = ubo.light.color.xyz * ubo.light.color.w * attenuation;
 
-    diffuseLight += cosAngIncidence * ubo.light.color.xyz;
+    vec3 diffuseColor = cosAngIncidence * ubo.light.color.xyz;
 
     // specular lighting
     vec3 halfAngle = normalize(directionToLight + viewDirection);
@@ -49,7 +49,7 @@ void main() {
     blinnTerm = pow(blinnTerm, 512.0); // higher values -> sharper highlight
     specularLight += intensity * blinnTerm;
 
-    outColor = vec4(diffuseLight, 1.0);
+    outColor = vec4(ambientColor + diffuseColor, 1.0);
 }
 
 // #version 450

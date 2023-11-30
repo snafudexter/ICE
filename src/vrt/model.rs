@@ -214,6 +214,15 @@ impl Model {
 
     pub fn draw(&self, device: Arc<VRTDevice>, command_buffer: CommandBuffer) {
         unsafe {
+            // let mesh = self.meshes.get(0).unwrap();
+            // device.get_device_ptr().cmd_draw_indexed(
+            //     command_buffer,
+            //     mesh.indices_count as u32,
+            //     1,
+            //     mesh.first_index,
+            //     0,
+            //     0,
+            // );
             for mesh in self.meshes.iter() {
                 device.get_device_ptr().cmd_draw_indexed(
                     command_buffer,
