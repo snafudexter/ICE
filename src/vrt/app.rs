@@ -8,6 +8,7 @@ use crate::{VRTWindow, WINDOW_HEIGHT, WINDOW_WIDTH};
 use std::process;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::time::Instant;
 
 use erupt::SmallVec;
 
@@ -45,6 +46,7 @@ pub struct VRTApp {
     camera: FPSCamera,
     global_pool: Rc<VRTDescriptorPool>,
     frame_time: u32, //global_descriptor_set_layout: VRTDescriptorSetLayout,
+    start: Instant,
 }
 
 impl VRTApp {
@@ -61,6 +63,7 @@ impl VRTApp {
         // let ground = Model::new(device.clone(), "./assets/models/quad.obj");
         // let sponza = Model::new(device.clone(), "./assets/models/sponza/sponza.obj");
         let shapes = Model::new(device.clone(), "./assets/models/shapes.obj");
+        let car = Model::new(device.clone(), "./assets/models/car.obj");
 
         let global_pool = std::rc::Rc::new(
             VRTDescriptorPoolBuilder::new(device.clone())
@@ -141,6 +144,7 @@ impl VRTApp {
                 // GameObject::new(Some(model)),
                 // GameObject::new(Some(sponza)),
                 GameObject::new(Some(shapes)),
+                // GameObject::new(Some(car)),
             ],
             simple_render_system,
             current_time: std::time::SystemTime::now(), //global_descriptor_set_layout,
@@ -149,6 +153,7 @@ impl VRTApp {
             global_pool,
             camera,
             frame_time: 0,
+            start: Instant::now(),
         }
     }
 
@@ -228,6 +233,9 @@ impl VRTApp {
 
     fn draw_frame(&mut self) -> VkResult<()> {
         let frame_time = self.current_time.elapsed().unwrap().as_millis();
+
+        let rotation_angle = 90f32 * self.start.elapsed().as_secs_f32();
+
         self.current_time = std::time::SystemTime::now();
 
         self.frame_time = frame_time as u32;
@@ -249,9 +257,12 @@ impl VRTApp {
 
         // perspective.y_axis.y *= -1f32;
 
-        let model_matrix = glam::Mat4::from_scale(glam::Vec3::ONE * 2f32)*
-            // glam::Mat4::from_axis_angle(glam::vec3(0f32, 0f32, 1f32), 180f32.to_radians())
-                 glam::Mat4::from_translation(glam::vec3(0f32, 0f32, 0f32));
+        let model_matrix = glam::Mat4::from_scale(glam::Vec3::ONE * 2f32)
+            * glam::Mat4::from_axis_angle(
+                glam::vec3(0f32, 1f32, 0f32),
+                rotation_angle.to_radians(),
+            )
+            * glam::Mat4::from_translation(glam::vec3(0f32, 0f32, 0f32));
 
         let global_ubo = GlobalUBO::new(
             model_matrix,

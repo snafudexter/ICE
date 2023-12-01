@@ -49,7 +49,7 @@ void main() {
     blinnTerm = pow(blinnTerm, 512.0); // higher values -> sharper highlight
     specularLight += intensity * blinnTerm;
 
-    outColor = vec4(ambientColor + diffuseColor, 1.0);
+    outColor = vec4(ambientColor + diffuseColor + specularLight, 1.0);
 }
 
 // #version 450
