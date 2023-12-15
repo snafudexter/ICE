@@ -274,12 +274,7 @@ impl VRTApp {
             perspective,
             glam::vec4(1.0, 1.0, 1f32, 0.1),
             PointLight::new(
-                glam::Vec4 {
-                    x: 2.0f32,
-                    y: 10f32,
-                    z: 5.0f32,
-                    w: 1.0f32,
-                },
+                glam::vec4(2.0f32, 10f32, 5.0f32, 1.0f32),
                 glam::vec4(0.5, 1.0, 1.0, 1.0),
             ),
             glam::vec4(
