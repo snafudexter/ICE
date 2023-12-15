@@ -143,8 +143,8 @@ impl VRTApp {
             game_objects: vec![
                 // GameObject::new(Some(model)),
                 // GameObject::new(Some(sponza)),
-                GameObject::new(Some(shapes)),
-                // GameObject::new(Some(car)),
+                //GameObject::new(Some(shapes)),
+                GameObject::new(Some(car)),
             ],
             simple_render_system,
             current_time: std::time::SystemTime::now(), //global_descriptor_set_layout,

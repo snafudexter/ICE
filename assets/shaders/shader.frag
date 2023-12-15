@@ -28,7 +28,7 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
 void main() {
     vec3 ambientColor = ubo.ambient_light_color.w * ubo.ambient_light_color.xyz;
     vec3 specularLight = vec3(0.0);
-    vec3 surfaceNormal = fragNormalWorld;
+    vec3 surfaceNormal = normalize(fragNormalWorld);
 
     vec3 cameraPosWorld = ubo.camera_pos_world.xyz;
     vec3 viewDirection = normalize(cameraPosWorld - fragPosWorld);
@@ -43,13 +43,11 @@ void main() {
     vec3 diffuseColor = cosAngIncidence * ubo.light.color.xyz;
 
     // specular lighting
-    vec3 halfAngle = normalize(directionToLight + viewDirection);
-    float blinnTerm = dot(surfaceNormal, halfAngle);
-    blinnTerm = clamp(blinnTerm, 0, 1);
-    blinnTerm = pow(blinnTerm, 512.0); // higher values -> sharper highlight
-    specularLight += intensity * blinnTerm;
+    vec3 reflectDir = reflect(-directionToLight, surfaceNormal); // float blinnTerm = dot(surfaceNormal, halfAngle);
+    float spec = pow(max(dot(viewDirection, reflectDir), 0.0), 32);
+    vec3 specular = 0.5 * spec * ubo.light.color.xyz;
 
-    outColor = vec4(ambientColor + diffuseColor + specularLight, 1.0);
+    outColor = vec4(ambientColor + diffuseColor + spec, 1.0);
 }
 
 // #version 450
