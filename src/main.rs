@@ -10,7 +10,6 @@ const WINDOW_HEIGHT: u32 = 600;
 fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
     let event_loop = EventLoop::new();
-    let _logger = flexi_logger::Logger::try_with_env_or_str("info")?.start()?;
 
     unsafe {
         let app = Box::leak(Box::new(VRTApp::new(

@@ -1,5 +1,4 @@
 use crate::vrt::buffer::VRTBuffer;
-use crate::vrt::camera::VRTCamera;
 use crate::vrt::descriptor_pool::{VRTDescriptorPoolBuilder, VRTDescriptorWriter};
 use crate::vrt::frame_info::GlobalUBO;
 use crate::vrt::layout::VRTDescriptorSetLayoutBuilder;
@@ -14,10 +13,10 @@ use erupt::SmallVec;
 
 use erupt::vk1_0::{
     BufferUsageFlags, DescriptorSet, DescriptorType, DeviceSize, MemoryPropertyFlags,
-    ShaderStageFlags, WHOLE_SIZE,
+    ShaderStageFlags,
 };
 use winit::dpi::PhysicalPosition;
-use winit::event::{DeviceEvent, ElementState, Event, MouseButton, VirtualKeyCode, WindowEvent};
+use winit::event::{ElementState, Event, MouseButton, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
 use super::descriptor_pool::VRTDescriptorPool;
@@ -31,7 +30,6 @@ use super::render_systems::simple_render_system::SimpleRenderSystem;
 use super::render_systems::triangle_render_system::TriangleRenderSystem;
 use super::renderer::VRTRenderer;
 use super::result::VkResult;
-use dolly::prelude::*;
 
 pub struct VRTApp {
     aspect_ratio: f32,
@@ -59,11 +57,7 @@ impl VRTApp {
 
         let renderer = VRTRenderer::new(device.clone(), &window).unwrap();
 
-        // let model = Model::new(device.clone(), "./assets/models/smooth_vase.obj");
-        // let ground = Model::new(device.clone(), "./assets/models/quad.obj");
-        // let sponza = Model::new(device.clone(), "./assets/models/sponza/sponza.obj");
-        let shapes = Model::new(device.clone(), "./assets/models/shapes.obj");
-        let car = Model::new(device.clone(), "./assets/models/car.obj");
+        let car = Model::new(device.clone(), "./assets/cube.glb");
 
         let global_pool = std::rc::Rc::new(
             VRTDescriptorPoolBuilder::new(device.clone())
