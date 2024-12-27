@@ -1,14 +1,14 @@
 use std::{convert::TryInto, fs::File, io::BufReader, mem, sync::Arc};
 
-use erupt::{vk, DeviceLoader};
-use gltf::{buffer::Data, Gltf, Mesh};
 use erupt::vk1_0::{
     Buffer, BufferCopyBuilder, BufferUsageFlags, CommandBuffer, CommandBufferAllocateInfoBuilder,
     CommandBufferBeginInfoBuilder, CommandBufferLevel, CommandBufferUsageFlags, CommandPool,
     DeviceSize, Fence, Format, IndexType, MemoryPropertyFlags, Queue, SubmitInfoBuilder,
     VertexInputAttributeDescriptionBuilder, VertexInputBindingDescriptionBuilder, VertexInputRate,
 };
+use erupt::{vk, DeviceLoader};
 use glam::{Vec2, Vec3};
+use gltf::{buffer::Data, Gltf, Mesh};
 
 use super::{buffer::VRTBuffer, device::VRTDevice, result::VkResult};
 
@@ -98,35 +98,45 @@ pub struct Model {
 
 impl Model {
     pub fn new(device: Arc<VRTDevice>, path: &str) -> VkResult<Self> {
-
-        let scenes = easy_gltf::load("tests/cube.glb").expect("Failed to load glTF");
-        let mut meshes:Vec<MeshData> = Vec::new();
+        let scenes = easy_gltf::load(path).expect("Failed to load glTF");
+        let mut meshes: Vec<MeshData> = Vec::new();
 
         for scene in scenes {
-        for model in scene.models {
-            let mut vertices: Vec<ModelVertex> = Vec::new();
-            let mut indices:Vec<u32> = Vec::new();
-            let first_index = indices.len() as u32;
-            for vertex in model.vertices() {
-                vertices.push(ModelVertex {
-                    position: glam::Vec3::new(vertex.position.x, vertex.position.y, vertex.position.z),
-                    normal: glam::Vec3::new(vertex.normal.x, vertex.normal.y, vertex.normal.z),
-                    tex_coords: glam::Vec2::new(vertex.tex_coords.x, vertex.tex_coords.y),
+            for model in scene.models {
+                let mut vertices: Vec<ModelVertex> = Vec::new();
+                let mut indices: Vec<u32> = Vec::new();
+                let first_index = indices.len() as u32;
+                for vertex in model.vertices() {
+                    vertices.push(ModelVertex {
+                        position: glam::Vec3::new(
+                            vertex.position.x,
+                            vertex.position.y,
+                            vertex.position.z,
+                        ),
+                        normal: glam::Vec3::new(vertex.normal.x, vertex.normal.y, vertex.normal.z),
+                        tex_coords: glam::Vec2::new(vertex.tex_coords.x, vertex.tex_coords.y),
+                    });
+                }
+
+                indices.extend_from_slice(&model.indices().unwrap());
+
+                meshes.push(MeshData {
+                    vertices,
+                    indices,
+                    first_index,
                 });
             }
-
-            meshes.push(MeshData {
-                vertices,
-                indices,
-                first_index,
-            });
         }
-    }
-
 
         // Create buffers for vertex and index data
-        let vertex_buffer = Self::create_vertex_buffer(device.clone(), meshes.iter().flat_map(|m| m.vertices.clone()).collect())?;
-        let index_buffer = Self::create_index_buffer(device.clone(), meshes.iter().flat_map(|m| m.indices.clone()).collect())?;
+        let vertex_buffer = Self::create_vertex_buffer(
+            device.clone(),
+            meshes.iter().flat_map(|m| m.vertices.clone()).collect(),
+        )?;
+        let index_buffer = Self::create_index_buffer(
+            device.clone(),
+            meshes.iter().flat_map(|m| m.indices.clone()).collect(),
+        )?;
 
         Ok(Self {
             vertex_buffer,
@@ -159,10 +169,10 @@ impl Model {
                 device.get_device_ptr().cmd_draw_indexed(
                     command_buffer,
                     mesh.indices.len() as u32, // Number of indices to draw
-                    1, // Instance count
-                    mesh.first_index, // Starting index in the index buffer
-                    0, // Vertex offset
-                    0, // First instance
+                    1,                         // Instance count
+                    mesh.first_index,          // Starting index in the index buffer
+                    0,                         // Vertex offset
+                    0,                         // First instance
                 );
             }
         }
@@ -210,7 +220,10 @@ impl Model {
         Ok(index_buffer)
     }
 
-    fn create_vertex_buffer(device: Arc<VRTDevice>, vertices: Vec<ModelVertex>) -> VkResult<VRTBuffer> {
+    fn create_vertex_buffer(
+        device: Arc<VRTDevice>,
+        vertices: Vec<ModelVertex>,
+    ) -> VkResult<VRTBuffer> {
         let buffer_size = (mem::size_of::<ModelVertex>() * vertices.len()) as DeviceSize;
 
         let mut staging_buffer = VRTBuffer::new(
@@ -267,7 +280,8 @@ impl Model {
 
         let command_buffer = unsafe { device.allocate_command_buffers(&alloc_info) }.result()?[0];
 
-        let begin_info = CommandBufferBeginInfoBuilder::new().flags(CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+        let begin_info =
+            CommandBufferBeginInfoBuilder::new().flags(CommandBufferUsageFlags::ONE_TIME_SUBMIT);
         unsafe { device.begin_command_buffer(command_buffer, &begin_info) }.result()?;
 
         let copy_region = BufferCopyBuilder::new().size(size);
@@ -277,7 +291,8 @@ impl Model {
 
         unsafe { device.end_command_buffer(command_buffer) }.result()?;
 
-        let submit_info = SubmitInfoBuilder::new().command_buffers(std::slice::from_ref(&command_buffer));
+        let submit_info =
+            SubmitInfoBuilder::new().command_buffers(std::slice::from_ref(&command_buffer));
 
         unsafe {
             device.queue_submit(
@@ -285,7 +300,8 @@ impl Model {
                 std::slice::from_ref(&submit_info),
                 Fence::null(),
             )
-        }.result()?;
+        }
+        .result()?;
         unsafe { device.queue_wait_idle(graphics_queue) }.result()?;
 
         unsafe { device.free_command_buffers(command_pool, std::slice::from_ref(&command_buffer)) };
