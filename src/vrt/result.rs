@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::fmt;
+use std::num::TryFromIntError;
 
 use erupt::utils::loading::EntryLoaderError;
 use erupt::{vk, LoaderError};
@@ -13,6 +14,9 @@ pub enum VkError {
     EntryLoader(EntryLoaderError),
     Loader(LoaderError),
     Vk(vk::Result),
+    TryFromInt(TryFromIntError), 
+    Io(std::io::Error),
+    Gltf(gltf::Error),
     // Image(ImageError),
     // ObjLoad(LoadError),
     ValidationLayerUnavailable,
@@ -24,6 +28,12 @@ pub enum VkError {
     UnsupportedLinearBlitting,
     SwapChainExpired,
     FrameAlreadyStarted
+}
+
+impl From<gltf::Error> for VkError {
+    fn from(err: gltf::Error) -> Self {
+        Self::Gltf(err)
+    }
 }
 
 impl From<EntryLoaderError> for VkError {
@@ -41,6 +51,19 @@ impl From<LoaderError> for VkError {
 impl From<vk::Result> for VkError {
     fn from(err: vk::Result) -> Self {
         Self::Vk(err)
+    }
+}
+
+impl From<TryFromIntError> for VkError {
+    fn from(err: TryFromIntError) -> Self {
+        Self::TryFromInt(err)
+    }
+}
+
+impl From<std::io::Error> for VkError {
+    fn from(err: std::io::Error) -> Self {
+        // You can customize how to handle std::io::Error
+        Self::Io(err) // Example if you wrap it
     }
 }
 
@@ -62,6 +85,9 @@ impl fmt::Display for VkError {
             VkError::EntryLoader(_) => f.write_str("entry loader error"),
             VkError::Loader(_) => f.write_str("loader error"),
             VkError::Vk(err) => write!(f, "vulkan error {}", err.0),
+            VkError::TryFromInt(_) => f.write_str("integer conversion error"),
+            VkError::Io(_) => f.write_str("IO error"),
+            VkError::Gltf(_) => f.write_str("Error in GLTF file error"),
             // VkError::Image(_) => f.write_str("image error"),
             // VkError::ObjLoad(_) => f.write_str("obj load error"),
             VkError::ValidationLayerUnavailable => {
@@ -91,6 +117,9 @@ impl Error for VkError {
             VkError::EntryLoader(err) => Some(err),
             VkError::Loader(err) => Some(err),
             VkError::Vk(err) => Some(err),
+            VkError::TryFromInt(err) => Some(err),
+            VkError::Io(err) => Some(err),
+            VkError::Gltf(err) => Some(err),
             // VkError::Image(err) => Some(err),
             // VkError::ObjLoad(err) => Some(err),
             VkError::ValidationLayerUnavailable

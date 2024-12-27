@@ -61,9 +61,9 @@ impl VRTDevice {
 
         #[cfg(debug_assertions)]
         let debug_messenger = debug::Messenger::new(&instance)?;
-
+        println!("before sur");
         let surface = Self::create_surface(window.get_window_ptr(), &instance)?;
-
+        println!("after");
         let (physical_device, queue_family_indices, swapchain_support) =
             Self::pick_physical_device(&instance, surface)?;
         println!("physical_device {:?}", &physical_device);

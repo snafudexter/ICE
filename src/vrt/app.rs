@@ -57,7 +57,7 @@ impl VRTApp {
 
         let renderer = VRTRenderer::new(device.clone(), &window).unwrap();
 
-        let car = Model::new(device.clone(), "./assets/cube.glb");
+        let car = Model::new(device.clone(), "./assets/cube.glb").expect("problem loading model");
 
         let global_pool = std::rc::Rc::new(
             VRTDescriptorPoolBuilder::new(device.clone())
@@ -128,6 +128,8 @@ impl VRTApp {
         );
 
         window.get_window_ptr().set_cursor_visible(false);
+
+        println!("All Loaded");
 
         Self {
             aspect_ratio: width as f32 / height as f32,
