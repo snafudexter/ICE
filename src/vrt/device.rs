@@ -8,7 +8,7 @@ use erupt::vk::{
     make_api_version, ApplicationInfoBuilder, DeviceCreateInfoBuilder,
     DeviceQueueCreateInfoBuilder, InstanceCreateInfoBuilder, PhysicalDevice,
     PhysicalDeviceFeaturesBuilder, PresentModeKHR, SurfaceCapabilitiesKHR, SurfaceFormatKHR,
-    SurfaceKHR, API_VERSION_1_1, KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
+    SurfaceKHR, API_VERSION_1_2, KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
     KHR_PORTABILITY_SUBSET_EXTENSION_NAME, KHR_SWAPCHAIN_EXTENSION_NAME,
 };
 use erupt::vk1_0::{
@@ -181,7 +181,7 @@ impl VRTDevice {
         let app_info = ApplicationInfoBuilder::new()
             .application_version(make_api_version(0, 1, 0, 0))
             .engine_version(make_api_version(0, 1, 0, 0))
-            .api_version(API_VERSION_1_1);
+            .api_version(API_VERSION_1_2);
 
         let extensions = Self::required_extensions(window)?;
 
@@ -202,7 +202,7 @@ impl VRTDevice {
     }
 
     fn required_extensions(window: &Window) -> VkResult<Vec<*const c_char>> {
-        let mut extensions = surface::enumerate_required_extensions(window).result()?;
+        let mut extensions = surface::enumerate_required_extensions(&window).result()?;
 
         #[cfg(debug_assertions)]
         let mut extensions = extensions;
