@@ -57,7 +57,7 @@ impl VRTApp {
 
         let renderer = VRTRenderer::new(device.clone(), &window).unwrap();
 
-        let car = Model::new(device.clone(), "./assets/cube.glb").expect("problem loading model");
+        let sponza = Model::new(device.clone(), "./assets/models/sponza-gltf-pbr/sponza.glb").expect("problem loading model");
 
         let global_pool = std::rc::Rc::new(
             VRTDescriptorPoolBuilder::new(device.clone())
@@ -140,7 +140,7 @@ impl VRTApp {
                 // GameObject::new(Some(model)),
                 // GameObject::new(Some(sponza)),
                 //GameObject::new(Some(shapes)),
-                GameObject::new(Some(car)),
+                GameObject::new(Some(sponza)),
             ],
             simple_render_system,
             current_time: std::time::SystemTime::now(), //global_descriptor_set_layout,
