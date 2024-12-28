@@ -20,7 +20,6 @@ pub enum VkError {
     // Image(ImageError),
     // ObjLoad(LoadError),
     ValidationLayerUnavailable,
-    UnsupportedTransitionLayout,
     NoVulkanGpu,
     NoSuitableGpu,
     NoSuitableMemoryType,
