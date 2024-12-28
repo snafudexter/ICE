@@ -17,3 +17,4 @@ pub mod result;
 pub mod swapchain;
 pub mod sync;
 pub mod window;
+pub mod texture;

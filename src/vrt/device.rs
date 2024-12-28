@@ -117,7 +117,7 @@ impl VRTDevice {
         Ok((buffer, buffer_memory))
     }
 
-    fn find_memory_type(
+    pub fn find_memory_type(
         instance: &InstanceLoader,
         physical_device: PhysicalDevice,
         type_filter: u32,

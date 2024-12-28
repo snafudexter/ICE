@@ -16,10 +16,11 @@ pub enum VkError {
     Vk(vk::Result),
     TryFromInt(TryFromIntError), 
     Io(std::io::Error),
-    Gltf(gltf::Error),
+    PngDecoding(png::DecodingError),
     // Image(ImageError),
     // ObjLoad(LoadError),
     ValidationLayerUnavailable,
+    UnsupportedTransitionLayout,
     NoVulkanGpu,
     NoSuitableGpu,
     NoSuitableMemoryType,
@@ -30,9 +31,9 @@ pub enum VkError {
     FrameAlreadyStarted
 }
 
-impl From<gltf::Error> for VkError {
-    fn from(err: gltf::Error) -> Self {
-        Self::Gltf(err)
+impl From<png::DecodingError> for VkError {
+    fn from(err: png::DecodingError) -> Self {
+        Self::PngDecoding(err)
     }
 }
 
@@ -87,7 +88,7 @@ impl fmt::Display for VkError {
             VkError::Vk(err) => write!(f, "vulkan error {}", err.0),
             VkError::TryFromInt(_) => f.write_str("integer conversion error"),
             VkError::Io(_) => f.write_str("IO error"),
-            VkError::Gltf(_) => f.write_str("Error in GLTF file error"),
+            VkError::PngDecoding(_) => f.write_str("PNG decoding error"),
             // VkError::Image(_) => f.write_str("image error"),
             // VkError::ObjLoad(_) => f.write_str("obj load error"),
             VkError::ValidationLayerUnavailable => {
@@ -119,7 +120,7 @@ impl Error for VkError {
             VkError::Vk(err) => Some(err),
             VkError::TryFromInt(err) => Some(err),
             VkError::Io(err) => Some(err),
-            VkError::Gltf(err) => Some(err),
+            VkError::PngDecoding(err) => Some(err),
             // VkError::Image(err) => Some(err),
             // VkError::ObjLoad(err) => Some(err),
             VkError::ValidationLayerUnavailable
