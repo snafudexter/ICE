@@ -6,8 +6,9 @@ use erupt::vk1_0::{
     DeviceSize, Fence, Format, IndexType, MemoryPropertyFlags, Queue, SubmitInfoBuilder,
     VertexInputAttributeDescriptionBuilder, VertexInputBindingDescriptionBuilder, VertexInputRate,
 };
-use erupt::DeviceLoader;
+use erupt::{vk, DeviceLoader};
 
+use super::texture::VRTTexture;
 use super::{buffer::VRTBuffer, device::VRTDevice, result::VkResult};
 
 macro_rules! size_of {
@@ -67,6 +68,7 @@ struct MeshData {
     first_index: u32, // Starting index for drawing
     index_count: u32,
     vertex_offset: i32,
+    base_color_texture: Option<VRTTexture>
 }
 
 
@@ -85,6 +87,7 @@ impl Model {
 
         for scene in scenes {
             for model in scene.models {
+
                 let first_index = indices.len() as u32;
                 let vertex_offset = vertices.len() as i32;
 
@@ -105,7 +108,11 @@ impl Model {
                 meshes.push(MeshData {
                     first_index,
                     index_count: model.indices().unwrap().len() as u32,
-                    vertex_offset
+                    vertex_offset,
+                    base_color_texture: match model.material().pbr.base_color_texture.clone() {
+                        Some(base_color_texture) => {Some(VRTTexture::new(device.clone(), base_color_texture.as_raw(), base_color_texture.width(), base_color_texture.height(), vk::Format::R8G8B8A8_SRGB).unwrap())},
+                        _ =>  None
+                    } 
                 });
             }
         }

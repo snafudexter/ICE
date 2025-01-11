@@ -40,6 +40,7 @@ pub struct SwapchainSupportDetails {
     present_modes: SmallVec<PresentModeKHR>,
 }
 
+#[derive(Debug)]
 pub struct VRTDevice {
     _queues: Queues,
     queue_family_indices: CompleteQueueFamilyIndices,

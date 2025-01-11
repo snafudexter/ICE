@@ -13,6 +13,7 @@ use erupt::{
 };
 use std::{ffi::c_void, fs::File, path::Path, sync::Arc};
 
+#[derive(Debug)]
 pub struct VRTTexture {
     device: Arc<VRTDevice>,
     image: Image,
@@ -21,24 +22,22 @@ pub struct VRTTexture {
     sampler: Sampler,
     width: u32,
     height: u32,
-    mip_levels: u32,
+    // mip_levels: u32,
     format: Format,
 }
 
 impl VRTTexture {
     pub fn new(
         device: Arc<VRTDevice>,
-        path: &Path,
-        format: Format,
-        usage_flags: ImageUsageFlags,
-        memory_property_flags: MemoryPropertyFlags,
+        image_data: &Vec<u8>,
+        width: u32,
+        height: u32,
+        format: Format
     ) -> VkResult<Self> {
-        // Load image data from file (e.g., using a library like image-rs)
-        let (width, height, image_data) = Self::load_image(path)?;
 
         // Create (staging)
 
-        let staging_buffer = VRTBuffer::new(
+        let mut staging_buffer = VRTBuffer::new(
             device.clone(),
             std::mem::size_of::<u8>().try_into()?,
             image_data.len().try_into().unwrap(),
@@ -61,7 +60,7 @@ impl VRTTexture {
         staging_buffer.unmap();
 
         let (texture_image, texture_image_memory) = Self::create_image(
-            device,
+            device.clone(),
             width,
             height,
             vk::Format::R8G8B8A8_SRGB,
@@ -69,6 +68,29 @@ impl VRTTexture {
             vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST,
             vk::MemoryPropertyFlags::DEVICE_LOCAL,
         )?;
+
+        Self::transition_image_layout(
+            device.clone(),
+            texture_image,
+            vk::ImageLayout::UNDEFINED,
+            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+        )?;
+    
+        unsafe { Self::copy_buffer_to_image(device.clone(), staging_buffer.get_buffer(), texture_image, width, height) }?;
+    
+        Self::transition_image_layout(
+            device.clone(),
+            texture_image,
+            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+            vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        )?;
+    
+
+        let image_view =
+            Self::create_image_view(device.clone(), texture_image, vk::Format::R8G8B8A8_SRGB)
+                .unwrap();
+
+        let sampler: Sampler = Self::create_texture_sampler(device.clone()).unwrap();
 
         Ok(Self {
             device,
@@ -78,9 +100,53 @@ impl VRTTexture {
             sampler,
             width,
             height,
-            mip_levels,
+            // mip_levels,
             format,
         })
+    }
+
+    fn create_texture_sampler(device: Arc<VRTDevice>) -> VkResult<Sampler> {
+        let info = vk::SamplerCreateInfoBuilder::new()
+            .mag_filter(vk::Filter::LINEAR)
+            .min_filter(vk::Filter::LINEAR)
+            .address_mode_u(vk::SamplerAddressMode::REPEAT)
+            .address_mode_v(vk::SamplerAddressMode::REPEAT)
+            .address_mode_w(vk::SamplerAddressMode::REPEAT)
+            .anisotropy_enable(true)
+            .max_anisotropy(16.0)
+            .border_color(vk::BorderColor::INT_OPAQUE_BLACK)
+            .unnormalized_coordinates(false)
+            .compare_enable(false)
+            .compare_op(vk::CompareOp::ALWAYS)
+            .mipmap_mode(vk::SamplerMipmapMode::LINEAR);
+
+        Ok(unsafe{device.get_device_ptr().create_sampler(&info, None).unwrap()})
+    }
+
+    fn create_image_view(
+        device: Arc<VRTDevice>,
+        image: vk::Image,
+        format: vk::Format,
+    ) -> VkResult<vk::ImageView> {
+        let subresource_range = vk::ImageSubresourceRangeBuilder::new()
+            .aspect_mask(vk::ImageAspectFlags::COLOR)
+            .base_mip_level(0)
+            .level_count(1)
+            .base_array_layer(0)
+            .layer_count(1);
+
+        let info = vk::ImageViewCreateInfoBuilder::new()
+            .image(image)
+            .view_type(vk::ImageViewType::_2D)
+            .format(format)
+            .subresource_range(*subresource_range);
+
+        unsafe {
+            Ok(device
+                .get_device_ptr()
+                .create_image_view(&info, None)
+                .unwrap())
+        }
     }
 
     pub fn get_image_view(&self) -> ImageView {
@@ -92,7 +158,7 @@ impl VRTTexture {
     }
 
     fn load_image(path: &Path) -> VkResult<(u32, u32, Vec<u8>)> {
-        let image = File::open("resources/texture.png")?;
+        let image = File::open(path)?;
         // Placeholder for image loading logic (use image-rs or similar library)
         let decoder = png::Decoder::new(image);
         let mut reader = decoder.read_info()?;
@@ -102,7 +168,7 @@ impl VRTTexture {
 
         let size = reader.info().raw_bytes() as u64;
         let (width, height) = reader.info().size();
-        OK((width, height, pixels))
+        Ok((width, height, pixels))
     }
 
     fn create_image(
@@ -163,7 +229,6 @@ impl VRTTexture {
     fn transition_image_layout(
         device: Arc<VRTDevice>,
         image: vk::Image,
-        format: vk::Format,
         old_layout: vk::ImageLayout,
         new_layout: vk::ImageLayout,
     ) -> VkResult<()> {
@@ -222,6 +287,47 @@ impl VRTTexture {
             Ok(())
         }
     }
+
+    unsafe fn copy_buffer_to_image(
+        device: Arc<VRTDevice>,
+        buffer: vk::Buffer,
+        image: vk::Image,
+        width: u32,
+        height: u32,
+    ) -> VkResult<()> {
+        let command_buffer = Self::begin_single_time_commands(device.clone())?;
+    
+        let subresource = vk::ImageSubresourceLayersBuilder::new()
+            .aspect_mask(vk::ImageAspectFlags::COLOR)
+            .mip_level(0)
+            .base_array_layer(0)
+            .layer_count(1);
+    
+        let region = vk::BufferImageCopyBuilder::new()
+            .buffer_offset(0)
+            .buffer_row_length(0)
+            .buffer_image_height(0)
+            .image_subresource(*subresource)
+            .image_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
+            .image_extent(vk::Extent3D {
+                width,
+                height,
+                depth: 1,
+            });
+    
+        device.get_device_ptr().cmd_copy_buffer_to_image(
+            command_buffer,
+            buffer,
+            image,
+            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+            &[region],
+        );
+    
+        Self::end_single_time_commands(device.clone(), command_buffer)?;
+    
+        Ok(())
+    }
+    
 
     fn begin_single_time_commands(device: Arc<VRTDevice>) -> VkResult<vk::CommandBuffer> {
         unsafe {
